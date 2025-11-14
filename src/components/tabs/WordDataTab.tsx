@@ -6,6 +6,7 @@ import { WordEditModal } from '../WordEditModal';
 import { BulkUploadModal } from '../BulkUploadModal';
 import { Fragment } from 'react';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { authService } from '../../utils/auth';
 
 interface WordDataTabProps {
   accessToken?: string;
@@ -126,15 +127,15 @@ export function WordDataTab({ accessToken }: WordDataTabProps) {
   const handleBulkUpload = async (uploadedWords: WordData[], deleteExisting: boolean = false) => {
     setUploading(true);
     try {
-      // Use accessToken from props or localStorage
-      const token = accessToken || localStorage.getItem('access_token');
+      // Use accessToken from props or authService
+      const token = accessToken || authService.getAccessToken();
       
       console.log('🔑 Access Token:', token ? `${token.substring(0, 20)}...` : 'NULL');
       console.log('📦 Uploading words count:', uploadedWords.length);
       console.log('🗑️ Delete existing:', deleteExisting);
       
       if (!token) {
-        alert('로그인이 필요합니다.');
+        alert('로그인이 필요합니다. 관리자로 다시 로그인해주세요.');
         return;
       }
 
@@ -178,9 +179,10 @@ export function WordDataTab({ accessToken }: WordDataTabProps) {
 
   const fetchAllWords = async () => {
     try {
-      const token = accessToken || localStorage.getItem('access_token');
+      const token = accessToken || (window as any).authService?.getAccessToken() || localStorage.getItem('access_token');
       
       if (!token) {
+        console.warn('⚠️ No access token available for fetching words');
         return;
       }
 
@@ -214,10 +216,10 @@ export function WordDataTab({ accessToken }: WordDataTabProps) {
 
   const handleDownloadFromDB = async () => {
     try {
-      const token = accessToken || localStorage.getItem('access_token');
+      const token = accessToken || (window as any).authService?.getAccessToken() || localStorage.getItem('access_token');
       
       if (!token) {
-        alert('로그인이 필요합니다.');
+        alert('로그인이 필요합니다. 관리자로 다시 로그인해주세요.');
         return;
       }
 

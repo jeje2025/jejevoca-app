@@ -21,8 +21,13 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
   const [error, setError] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   
-  // Load students from Supabase
+  // Load access token and students from Supabase
   useEffect(() => {
+    // Get access token from authService
+    const token = authService.getAccessToken();
+    console.log('🔑 AdminDashboard - Access token:', token ? `${token.substring(0, 20)}...` : 'NULL');
+    setAccessToken(token);
+    
     loadStudents();
   }, []);
 
