@@ -725,8 +725,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     if (!match || !user) return
 
     const isBotTurn = match.current_turn === BOT_ID
-    // showBotDefenseResult가 true이면 "계속하기" 버튼을 기다림
-    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
+    // 모달이나 결과 화면이 열려있으면 대기
+    const canAttack = !botThinking && !showQuestion && !showResult && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
 
     if (isBotTurn && canAttack && match.status === 'active') {
       console.log('🤖 봇 턴! 2초 후 자동 공격')
@@ -736,7 +736,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
       return () => clearTimeout(timer)
     }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showResult, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
@@ -1351,16 +1351,19 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         updateData.winner_id = currentTurn.attacker_id
       }
 
+      // 로컬 상태를 먼저 업데이트 (봇 턴 트리거 방지)
+      setIsMyTurn(correct)
+
       await supabase
         .from('battles')
         .update(updateData)
         .eq('id', matchId)
 
+      // 2초 후에 결과 화면 닫기
       setTimeout(() => {
         setShowQuestion(false)
         setShowResult(false)
         setSelectedChoice(null)
-        setIsMyTurn(correct)
         // 내 공격 턴이 오면 10초로 리셋
         setTimeLeft(10)
       }, 2000)
