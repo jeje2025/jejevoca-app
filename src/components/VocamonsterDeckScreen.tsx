@@ -422,7 +422,65 @@ export function VocamonsterDeckScreen({ onBack }: VocamonsterDeckScreenProps) {
   }
 
   return (
-    <div className="w-full max-w-sm mx-auto min-h-screen vocamonster-screen relative overflow-hidden">
+    <>
+      {/* 플로팅 추가 버튼 - 화면 하단 고정 (BottomNavigation과 동일한 레이어) */}
+      {activeTab === 'add' && selectedCount > 0 && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none px-6 w-full max-w-sm">
+          <div className="flex flex-col items-center gap-2 pointer-events-auto">
+            {/* 카드 덱 아이콘 - 버튼 밖, 위에 크게 */}
+            <img
+              src="/vocamonster/vocamonster-cards.png"
+              alt="Card Deck"
+              className="w-48 h-48 object-contain"
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* 추가 버튼 - 작게 */}
+            <div style={{ pointerEvents: 'auto', position: 'relative' }}>
+              <button
+                onClick={addSelectedWordsToDeck}
+                disabled={bulkAdding}
+                className="relative px-4 py-2 rounded-xl touch-manipulation shadow-xl active:scale-95 transition-transform"
+                style={{
+                  background: bulkAdding
+                    ? 'linear-gradient(135deg, rgba(100, 100, 100, 0.8) 0%, rgba(80, 80, 80, 0.8) 100%)'
+                    : 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)',
+                  backdropFilter: 'blur(12px)',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  color: '#FFFFFF',
+                  cursor: bulkAdding ? 'not-allowed' : 'pointer',
+                  opacity: bulkAdding ? 0.7 : 1,
+                  boxShadow: bulkAdding
+                    ? '0 8px 32px rgba(0, 0, 0, 0.3)'
+                    : '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset'
+                }}
+              >
+                {/* 버튼 텍스트 - 작게 */}
+                <span className="text-xs font-bold">
+                  {bulkAdding ? '추가 중...' : `${selectedCount}개 추가`}
+                </span>
+
+                {/* 선택 개수 배지 (작은 원형) */}
+                {!bulkAdding && (
+                  <div
+                    className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shadow-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 100%)',
+                      color: '#F59E0B',
+                      border: '2px solid #F59E0B',
+                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
+                    }}
+                  >
+                    {selectedCount}
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-sm mx-auto min-h-screen vocamonster-screen relative" style={{ overflowX: 'hidden' }}>
       <div className="vocamonster-header">
         <div className="flex items-center justify-between h-full px-6">
           <motion.button
@@ -662,93 +720,8 @@ export function VocamonsterDeckScreen({ onBack }: VocamonsterDeckScreenProps) {
           </>
         )}
       </div>
-
-      {/* 플로팅 추가 버튼 - 화면 중앙 하단 고정 (스크롤과 무관하게 고정) */}
-      {activeTab === 'add' && selectedCount > 0 && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1000,
-            pointerEvents: 'none',
-          }}
-        >
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            style={{ pointerEvents: 'auto' }}
-          >
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={addSelectedWordsToDeck}
-              disabled={bulkAdding}
-              className="relative px-6 py-3 rounded-2xl touch-manipulation shadow-2xl flex flex-col items-center gap-2"
-              style={{
-                background: bulkAdding 
-                  ? 'linear-gradient(135deg, rgba(100, 100, 100, 0.8) 0%, rgba(80, 80, 80, 0.8) 100%)'
-                  : 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)',
-                backdropFilter: 'blur(12px)',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                color: '#FFFFFF',
-                cursor: bulkAdding ? 'not-allowed' : 'pointer',
-                opacity: bulkAdding ? 0.7 : 1,
-                boxShadow: bulkAdding 
-                  ? '0 8px 32px rgba(0, 0, 0, 0.3)'
-                  : '0 8px 32px rgba(245, 158, 11, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset'
-              }}
-            >
-              {/* 카드 덱 아이콘 - 크게 */}
-              <motion.img
-                src="/vocamonster/vocamonster-cards.png"
-                alt="Card Deck"
-                className="w-24 h-24 object-contain"
-                animate={{
-                  y: [0, -4, 0],
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-              
-              {/* 버튼 텍스트 - 작게 */}
-              <span className="text-sm font-bold">
-                {bulkAdding ? '추가 중...' : `${selectedCount}개 추가`}
-              </span>
-
-              {/* 선택 개수 배지 (작은 원형) */}
-              {!bulkAdding && (
-                <motion.div
-                  className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shadow-lg"
-                  style={{
-                    background: 'linear-gradient(135deg, #FFFFFF 0%, #F3F4F6 100%)',
-                    color: '#F59E0B',
-                    border: '2px solid #F59E0B',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
-                  }}
-                  animate={{
-                    scale: [1, 1.1, 1],
-                  }}
-                  transition={{
-                    duration: 1,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                >
-                  {selectedCount}
-                </motion.div>
-              )}
-            </motion.button>
-          </motion.div>
-        </div>
-      )}
     </div>
+    </>
   )
 }
 

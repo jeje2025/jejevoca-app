@@ -94,6 +94,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const [gameResult, setGameResult] = useState<'win' | 'lose' | null>(null)
   const [loading, setLoading] = useState(true)
   const [battleLogs, setBattleLogs] = useState<BattleLog[]>([])
+  const [toastMessage, setToastMessage] = useState<{message: string, type: BattleLog['type']} | null>(null)
   const [showAttackAnimation, setShowAttackAnimation] = useState(false)
   const [showDamageAnimation, setShowDamageAnimation] = useState(false)
   const [damagePosition, setDamagePosition] = useState<'left' | 'right'>('right')
@@ -122,6 +123,12 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const [usedWordIds, setUsedWordIds] = useState<Set<string>>(new Set())
   const prevMatchRef = useRef<Match | null>(null)
   const botAutoAnswerRef = useRef<((turn: MatchTurn) => Promise<void>) | null>(null)
+  const triggerDamageAnimation = useCallback((amount: number) => {
+    setDamage(amount)
+    setDamagePosition('left')
+    setShowDamageAnimation(true)
+    setTimeout(() => setShowDamageAnimation(false), 800)
+  }, [])
 
   useEffect(() => {
     if (!user) {
@@ -130,9 +137,19 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       return
     }
 
-    // 최초 로딩
-    loadMatch()
-    loadUserDeck()
+    // 최초 로딩 - 두 작업을 동시에 수행하고 모두 완료될 때까지 로딩 상태 유지
+    const initBattle = async () => {
+      setLoading(true)
+      try {
+        await Promise.all([loadMatch(), loadUserDeck()])
+      } catch (error) {
+        console.error('배틀 초기화 오류:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initBattle()
   }, [matchId, user?.id])
 
   // 시간 초과 시 턴 넘기기 함수
@@ -197,7 +214,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setShowResult(true)
       setIsAnswering(false)
 
-      // 데미지 애니메이션은 폴링에서 하트 변화 감지 시 한 번만 표시
+      triggerDamageAnimation(heartLoss)
 
       // addBattleLog는 일반 함수이므로 직접 호출
       const newLog: BattleLog = {
@@ -302,11 +319,48 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
   }, [isMyTurn, showQuestion])
 
+  // 모달 열릴 때 body 스크롤 막기
+  useEffect(() => {
+    // 퀴즈 모달이 아닐 때만 스크롤 막기 (퀴즈 모달일 때는 스크롤 허용)
+    const shouldBlockScroll = !showQuestion
+
+    if (shouldBlockScroll) {
+      // 현재 스크롤 위치 저장
+      const scrollY = window.scrollY
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      document.body.style.overflow = 'hidden'
+    } else {
+      // 스크롤 위치 복원
+      const scrollY = document.body.style.top
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      document.body.style.overflow = ''
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1)
+      }
+    }
+
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      document.body.style.overflow = ''
+    }
+  }, [showQuestion])
+
   // 폴링 기반 매치/방어 턴 체크
   useEffect(() => {
     if (!user) return
 
     const interval = setInterval(async () => {
+      // 모달이나 공격 패널이 열려있으면 polling 스킵 (깜빡임 방지 & 동시 공격 방지)
+      if (showQuestion || showBotDefenseResult || showOpponentDefenseResult || showAttackPanel) {
+        return
+      }
+
       try {
         const { data: matchData, error: matchError } = await supabase
           .from('battles')
@@ -320,35 +374,19 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
         const newMatch = matchData as Match
 
-        // 하트 변화 감지해서 데미지 애니메이션 실행 (한 번만 표시)
-        const prevMatch = prevMatchRef.current
-        if (prevMatch && !gameEnded && !showDamageAnimation) {
-          const isPlayer1 = prevMatch.player1_id === user.id
-          const prevMyHearts = isPlayer1 ? prevMatch.player1_hearts : prevMatch.player2_hearts
-          const prevOpponentHearts = isPlayer1 ? prevMatch.player2_hearts : prevMatch.player1_hearts
-          const newMyHearts = isPlayer1 ? newMatch.player1_hearts : newMatch.player2_hearts
-          const newOpponentHearts = isPlayer1 ? newMatch.player2_hearts : newMatch.player1_hearts
+        // match가 실제로 변경되었을 때만 업데이트 (깜빡임 방지)
+        const hasChanged = !prevMatchRef.current ||
+          prevMatchRef.current.current_turn !== newMatch.current_turn ||
+          prevMatchRef.current.player1_hearts !== newMatch.player1_hearts ||
+          prevMatchRef.current.player2_hearts !== newMatch.player2_hearts ||
+          prevMatchRef.current.status !== newMatch.status
 
-          if (newMyHearts < prevMyHearts) {
-            const diff = prevMyHearts - newMyHearts
-            setDamage(diff)
-            setDamagePosition('left')
-            setShowDamageAnimation(true)
-            setTimeout(() => setShowDamageAnimation(false), 800)
-          } else if (newOpponentHearts < prevOpponentHearts) {
-            const diff = prevOpponentHearts - newOpponentHearts
-            setDamage(diff)
-            setDamagePosition('right')
-            setShowDamageAnimation(true)
-            setTimeout(() => setShowDamageAnimation(false), 800)
-          }
+        if (hasChanged) {
+          prevMatchRef.current = newMatch
+          setMatch(newMatch)
+          setIsMyTurn(newMatch.current_turn === user.id)
+          checkGameEnd(newMatch)
         }
-
-        prevMatchRef.current = newMatch
-
-        setMatch(newMatch)
-        setIsMyTurn(newMatch.current_turn === user.id)
-        checkGameEnd(newMatch)
 
         // 내가 방어해야 할 턴이 있는지 체크 (퀴즈가 안 떠 있을 때만)
         if (newMatch.current_turn === user.id && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult) {
@@ -450,10 +488,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       } catch (err) {
         console.error('매치/방어 폴링 오류:', err)
       }
-    }, 1000)
+    }, 2000)
 
     return () => clearInterval(interval)
-  }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, match?.is_bot_match, botThinking])
+  }, [matchId, user?.id])
 
   // 봇 자동 공격 트리거
   useEffect(() => {
@@ -479,11 +517,14 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       type
     }
     setBattleLogs(prev => [newLog, ...prev].slice(0, 5)) // 최대 5개만 유지
+
+    // 토스트로도 표시
+    setToastMessage({ message, type })
+    setTimeout(() => setToastMessage(null), 3000) // 3초 후 자동으로 사라짐
   }
 
   const loadMatch = async () => {
     try {
-      setLoading(true)
       const { data, error } = await supabase
         .from('battles')
         .select('*')
@@ -515,8 +556,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.error('매치 로드 오류:', error)
       alert('매치를 불러올 수 없습니다.')
       onBack()
-    } finally {
-      setLoading(false)
+      throw error
     }
   }
 
@@ -821,8 +861,6 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         console.error('포인트 업데이트 오류:', updateError)
       } else {
         console.log('✅ 포인트 업데이트 완료:', newPoints)
-        // authService 세션도 업데이트
-        await authService.checkSession()
       }
     } catch (error) {
       console.error('포인트 업데이트 실패:', error)
@@ -964,12 +1002,47 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const showQuestionToDefender = async (turn: MatchTurn) => {
     try {
       // 단어 정보 가져오기
-      const word = userDeck.find(w => w.id === turn.word_id) || {
-        id: turn.word_id,
-        word: turn.word_text,
-        korean_meaning: '',
-        synonyms: [],
-        antonyms: []
+      let word = userDeck.find(w => w.id === turn.word_id)
+
+      // userDeck에 없으면 데이터베이스에서 직접 가져오기
+      if (!word) {
+        try {
+          const { data: wordData, error } = await supabase
+            .from('words')
+            .select('id, word, korean_meaning, pronunciation, synonyms, antonyms')
+            .eq('id', turn.word_id)
+            .single()
+
+          if (wordData && !error) {
+            word = {
+              id: wordData.id,
+              word: wordData.word,
+              korean_meaning: wordData.korean_meaning || '',
+              pronunciation: wordData.pronunciation,
+              synonyms: wordData.synonyms || [],
+              antonyms: wordData.antonyms || []
+            }
+            console.log('✅ 데이터베이스에서 단어 로드:', word)
+          } else {
+            console.error('❌ 단어 로드 실패:', error)
+            word = {
+              id: turn.word_id,
+              word: turn.word_text,
+              korean_meaning: '',
+              synonyms: [],
+              antonyms: []
+            }
+          }
+        } catch (fetchError) {
+          console.error('❌ 단어 fetch 오류:', fetchError)
+          word = {
+            id: turn.word_id,
+            word: turn.word_text,
+            korean_meaning: '',
+            synonyms: [],
+            antonyms: []
+          }
+        }
       }
 
       // 실제로 사용할 문제 유형 결정
@@ -1035,12 +1108,44 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.log('봇이 답변 중...', turn)
 
       // 단어 정보 가져오기
-      const word = userDeck.find(w => w.id === turn.word_id) || {
-        id: turn.word_id,
-        word: turn.word_text,
-        korean_meaning: '',
-        synonyms: [],
-        antonyms: []
+      let word = userDeck.find(w => w.id === turn.word_id)
+
+      // userDeck에 없으면 데이터베이스에서 직접 가져오기
+      if (!word) {
+        try {
+          const { data: wordData, error } = await supabase
+            .from('words')
+            .select('id, word, korean_meaning, pronunciation, synonyms, antonyms')
+            .eq('id', turn.word_id)
+            .single()
+
+          if (wordData && !error) {
+            word = {
+              id: wordData.id,
+              word: wordData.word,
+              korean_meaning: wordData.korean_meaning || '',
+              pronunciation: wordData.pronunciation,
+              synonyms: wordData.synonyms || [],
+              antonyms: wordData.antonyms || []
+            }
+          } else {
+            word = {
+              id: turn.word_id,
+              word: turn.word_text,
+              korean_meaning: '',
+              synonyms: [],
+              antonyms: []
+            }
+          }
+        } catch (fetchError) {
+          word = {
+            id: turn.word_id,
+            word: turn.word_text,
+            korean_meaning: '',
+            synonyms: [],
+            antonyms: []
+          }
+        }
       }
 
       // 봇 난이도: 70% 확률로 정답
@@ -1209,10 +1314,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         addBattleLog('🛡️ 방어 성공! 반격 기회를 얻었습니다! ⚡', 'defend')
       } else {
         addBattleLog(`💔 방어 실패! 하트를 ${heartLoss}개 잃었습니다! 💥`, 'damage')
-        // 틀렸을 때 즉시 데미지 애니메이션 표시
-        setDamagePosition('left')
-        setShowDamageAnimation(true)
-        setTimeout(() => setShowDamageAnimation(false), 800)
+        triggerDamageAnimation(heartLoss)
       }
 
       // 턴 업데이트
@@ -1269,8 +1371,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
   if (loading) {
     return (
-      <div className="vocamonster-container">
-        <div className="w-full max-w-sm mx-auto relative">
+      <div className="vocamonster-container fixed inset-0 overflow-hidden">
+        <div className="w-full max-w-sm mx-auto relative h-full flex flex-col justify-center">
           <div className="vocamonster-header">
             <div className="flex items-center justify-between h-full px-6">
               <motion.button
@@ -1309,8 +1411,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
   if (gameEnded) {
     return (
-      <div className="vocamonster-container">
-        <div className="w-full max-w-sm mx-auto relative">
+      <div className="vocamonster-container fixed inset-0 overflow-hidden">
+        <div className="w-full max-w-sm mx-auto relative h-full overflow-y-auto">
           <div className="vocamonster-header">
             <div className="flex items-center justify-between h-full px-6">
               <motion.button
@@ -1435,8 +1537,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const availableDeck = userDeck.filter(word => !usedWordIds.has(word.id))
 
   return (
-    <div className="vocamonster-container">
-      <div className="w-full max-w-sm mx-auto relative">
+    <div className="vocamonster-container fixed inset-0 overflow-hidden">
+      <div className="w-full max-w-sm mx-auto relative h-full overflow-y-auto">
         <div className="vocamonster-header">
           <div className="flex items-center justify-between h-full px-6">
             <motion.button
@@ -1479,21 +1581,36 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
           {opponentIsBot && botThinking && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="vocamonster-card p-3 border border-cyan-400/40 bg-cyan-500/5"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-cyan-500/90 rounded-lg shadow-lg"
             >
-              <div className="flex items-center gap-3 vocamonster-text-primary">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                >
-                  <Target className="w-5 h-5 text-cyan-400" />
-                </motion.div>
-                <span className="text-sm font-semibold">VOCABOT이 공격을 준비 중...</span>
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-white animate-spin" />
+                <span className="text-white text-sm font-semibold">VOCABOT 공격 준비 중...</span>
               </div>
             </motion.div>
           )}
+
+          {/* 게임 안내 토스트 */}
+          <AnimatePresence>
+            {toastMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg ${
+                  toastMessage.type === 'damage' ? 'bg-red-500/90' :
+                  toastMessage.type === 'defend' ? 'bg-green-500/90' :
+                  toastMessage.type === 'victory' ? 'bg-yellow-500/90' :
+                  'bg-blue-500/90'
+                }`}
+              >
+                <span className="text-white text-sm font-semibold">{toastMessage.message}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         {/* 배틀 필드 - 퀴즈 화면이 표시될 때는 숨김 */}
         {!showQuestion && (
@@ -1506,10 +1623,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           >
             {/* 게임적 효과 - 상대방 주변에 에너지 필드 */}
             <div className="absolute inset-0 rounded-2xl overflow-visible">
-              <div className={`absolute inset-0 ${opponentIsBot ? 'bg-cyan-400/5' : 'bg-red-400/5'} animate-pulse`}></div>
-              <div className={`absolute top-0 left-0 w-2 h-2 ${opponentIsBot ? 'bg-cyan-400' : 'bg-red-400'} rounded-full animate-ping`} style={{ animationDelay: '0.5s' }} />
-              <div className={`absolute top-0 right-0 w-1 h-1 ${opponentIsBot ? 'bg-cyan-400' : 'bg-red-400'} rounded-full animate-ping`} style={{ animationDelay: '1s' }} />
-              <div className={`absolute bottom-0 left-1/4 w-1.5 h-1.5 ${opponentIsBot ? 'bg-cyan-400' : 'bg-red-400'} rounded-full animate-ping`} style={{ animationDelay: '1.5s' }} />
+              <div className={`absolute inset-0 ${opponentIsBot ? 'bg-cyan-400/5' : 'bg-red-400/5'}`}></div>
             </div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
@@ -1544,20 +1658,26 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             <AnimatePresence>
               {showDamageAnimation && damagePosition === 'right' && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0, y: -50 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0, y: -100 }}
-                  className="fixed top-1/2 right-8 -translate-y-1/2 z-[100] pointer-events-none"
-                  style={{ right: 'calc(50% + 8rem)' }}
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="fixed top-1/2 left-1/2 z-[120] pointer-events-none"
+                  style={{ transform: 'translate(160px, -50%)' }}
                 >
                   <div className="relative">
-                    <img
+                    <motion.img
                       src="/vocamonster/damage.png"
                       alt="Damage"
-                      className="max-w-[140px] h-auto object-contain drop-shadow-[0_0_28px_rgba(248,113,113,0.9)]"
+                      className="w-[220px] h-auto object-contain"
+                      style={{
+                        filter: 'drop-shadow(0 0 24px rgba(248, 113, 113, 0.7))'
+                      }}
+                      animate={{ rotate: [-5, 5, -5] }}
+                      transition={{ duration: 0.4, repeat: 2, ease: "easeInOut" }}
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-5xl font-black text-red-500 drop-shadow-2xl">
+                      <span className="text-6xl font-black text-red-500" style={{ filter: 'drop-shadow(0 0 12px rgba(248, 113, 113, 0.8))' }}>
                         -{damage}
                       </span>
                     </div>
@@ -1568,20 +1688,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           </motion.div>
 
           {/* VS 표시 - 플레이어 카드 사이에 배치 */}
-          <div className="relative flex items-center justify-center my-2 z-10">
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 5, -5, 0],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-              }}
-              className="flex items-center justify-center"
-            >
-              <img src="/vocamonster/vs-icon.png" alt="VS" className="w-16 h-16 object-contain drop-shadow-2xl vocamonster-icon-transparent" />
-            </motion.div>
+          <div className="relative flex items-center justify-center -my-8 z-30">
+            <img src="/vocamonster/vs-icon.png" alt="VS" className="w-40 h-40 object-contain drop-shadow-xl vocamonster-icon-transparent" />
           </div>
 
           {/* 내 캐릭터 (아래) */}
@@ -1592,10 +1700,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           >
             {/* 게임적 효과 - 내 캐릭터 주변에 에너지 필드 */}
             <div className="absolute inset-0 rounded-2xl overflow-visible">
-              <div className="absolute inset-0 bg-blue-400/5 animate-pulse" />
-              <div className="absolute top-0 right-0 w-2 h-2 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute bottom-0 left-0 w-1 h-1 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
-              <div className="absolute top-1/4 right-0 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '1.5s' }} />
+              <div className="absolute inset-0 bg-blue-400/5" />
             </div>
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
@@ -1619,22 +1724,26 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             <AnimatePresence>
               {showDamageAnimation && damagePosition === 'left' && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0, y: 50 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0, y: 100 }}
-                  className="fixed top-1/2 left-8 -translate-y-1/2 z-[100] pointer-events-none"
-                  style={{ left: 'calc(50% - 8rem)' }}
+                  initial={{ opacity: 0, scale: 0.6, rotate: 10 }}
+                  animate={{ opacity: 1, scale: 1, rotate: [10, -8, 6, -4, 0] }}
+                  exit={{ opacity: 0, scale: 0.5, rotate: -12 }}
+                  className="fixed top-1/2 left-1/2 z-[120] pointer-events-none"
+                  style={{ transform: 'translate(-160px, -50%)' }}
                 >
                   <div className="relative">
                     <img
                       src="/vocamonster/damage.png"
                       alt="Damage"
-                      className="max-w-[140px] h-auto object-contain drop-shadow-[0_0_28px_rgba(248,113,113,0.9)]"
+                      className="w-[220px] h-auto object-contain drop-shadow-[0_0_42px_rgba(248,113,113,0.95)]"
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-5xl font-black text-red-500 drop-shadow-2xl">
+                      <motion.span
+                        className="text-6xl font-black text-red-500 drop-shadow-[0_0_18px_rgba(248,113,113,0.9)]"
+                        animate={{ scale: [1, 1.2, 1], opacity: [1, 0.6, 1] }}
+                        transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
+                      >
                         -{damage}
-                      </span>
+                      </motion.span>
                     </div>
                   </div>
                 </motion.div>
@@ -1706,48 +1815,21 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           </motion.div>
         )}
 
-        {/* 배틀 로그 */}
-        {battleLogs.length > 0 && (
-          <div className="vocamonster-card p-3 mb-4 max-h-32 overflow-y-auto bg-black/20 border-white/10">
-            <div className="space-y-1">
-              {battleLogs.map((log) => (
-                <motion.div
-                  key={log.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`text-xs font-semibold ${
-                    log.type === 'damage' ? 'text-red-200' :
-                    log.type === 'defend' ? 'text-green-300' :
-                    log.type === 'victory' ? 'text-yellow-200' :
-                    'text-white'
-                  }`}
-                >
-                  • {log.message}
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Question Screen */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showQuestion && currentQuestion && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-hidden"
+            transition={{ duration: 0.1 }}
+            className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[9999] overflow-hidden"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ scale: 0.8, y: 50, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.8, y: 50, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
+            <div className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
             >
               
               <div className="relative z-10">
@@ -1758,41 +1840,41 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                 </h3>
 
                 {showResult ? (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-center"
-                  >
+                  <div className="text-center">
                     {isCorrect ? (
                       <>
-                        <motion.div
-                          initial={{ scale: 0, rotate: -180 }}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ type: "spring", stiffness: 200 }}
-                          className="flex items-center justify-center mb-6"
-                        >
+                        <div className="flex items-center justify-center mb-6">
                           <DefenseSuccessIcon size={200} />
-                        </motion.div>
+                        </div>
                         <p className="vocamonster-correct-text font-black text-2xl mb-2 drop-shadow-lg">정답입니다!</p>
                         <p className="vocamonster-correct-message font-semibold">방어 성공! 반격 기회를 얻었습니다!</p>
                       </>
                     ) : (
                       <>
-                    <p className="vocamonster-wrong-text font-black text-2xl mb-2 drop-shadow-lg">틀렸습니다!</p>
-                    <p className="vocamonster-wrong-damage font-semibold">하트 -{damage}</p>
+                        <div className="mb-6">
+                          {/* 데미지 아이콘 - 대각선 할퀴기 애니메이션 */}
+                          <img
+                            src="/vocamonster/damage.png"
+                            alt="틀림"
+                            className="w-32 h-32 mx-auto object-contain"
+                            style={{
+                              filter: 'drop-shadow(0 0 16px rgba(248, 113, 113, 0.6))',
+                              animation: 'damageSlash 0.4s ease-out forwards',
+                              opacity: 0
+                            }}
+                          />
+                        </div>
+                        <p className="vocamonster-wrong-text font-black text-2xl mb-2">틀렸습니다!</p>
+                        <p className="vocamonster-wrong-damage font-semibold">하트 -{damage}</p>
                       </>
                     )}
-                  </motion.div>
+                  </div>
                 ) : (
                   <>
                     <div className="space-y-3 mb-6">
                       {choices.map((choice, index) => (
-                        <motion.button
+                        <button
                           key={index}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
@@ -1803,7 +1885,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                           className="w-full vocamonster-card p-4 vocamonster-text-primary disabled:opacity-50 text-left min-h-[56px] touch-manipulation font-bold hover:bg-white/10 transition-all active:scale-95"
                         >
                           {choice}
-                        </motion.button>
+                        </button>
                       ))}
                     </div>
                     <div className="text-center">
@@ -1815,25 +1897,22 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   </>
                 )}
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* VOCABOT 방어 결과 화면 */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showBotDefenseResult && botDefenseResult && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            transition={{ duration: 0.1 }}
+            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50"
           >
-            <motion.div
-              initial={{ scale: 0.9, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 50 }}
-              className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-cyan-900/90 to-blue-900/90"
+            <div className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-cyan-900/90 to-blue-900/90"
             >
               <div className="relative z-10 text-center space-y-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-white">VOCABOT DEFENSE</p>
@@ -1866,21 +1945,6 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <motion.div
-                        initial={{ scale: 0, rotate: 180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 200 }}
-                        className="mb-2"
-                      >
-                        <img
-                          src="/vocamonster/damage.png"
-                          alt="Damage"
-                          className="w-32 h-32 object-contain"
-                          style={{
-                            filter: 'drop-shadow(0 0 40px rgba(248, 113, 113, 0.9))'
-                          }}
-                        />
-                      </motion.div>
                       <p className="vocamonster-bot-defense-fail font-black text-xl drop-shadow-lg">VOCABOT 방어 실패!</p>
                       <p className="text-white/90 text-sm">VOCABOT이 데미지를 받았습니다.</p>
                     </div>
@@ -1898,29 +1962,24 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   계속하기
                 </motion.button>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 상대방 방어 결과 화면 */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showOpponentDefenseResult && opponentDefenseResult && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[200] overflow-hidden"
+            transition={{ duration: 0.1 }}
+            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[200] overflow-hidden"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ scale: 0.8, y: 50, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.8, y: 50, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
+            <div className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
             >
               <div className="relative z-10 text-center space-y-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-white">OPPONENT DEFENSE</p>
@@ -1953,21 +2012,6 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <motion.div
-                        initial={{ scale: 0, rotate: 180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 200 }}
-                        className="mb-2"
-                      >
-                        <img
-                          src="/vocamonster/damage.png"
-                          alt="Damage"
-                          className="w-32 h-32 object-contain"
-                          style={{
-                            filter: 'drop-shadow(0 0 40px rgba(248, 113, 113, 0.9))'
-                          }}
-                        />
-                      </motion.div>
                       <p className="vocamonster-bot-defense-fail font-black text-xl">상대방 방어 실패!</p>
                       <p className="text-white/90 text-sm">상대방이 데미지를 받았습니다.</p>
                     </div>
@@ -1984,7 +2028,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   계속하기
                 </motion.button>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2028,11 +2072,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               onClick={(e) => e.stopPropagation()}
             >
               <div className="vocamonster-bottom-handle" />
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-white">
-                  <p className="text-sm font-semibold">공격 카드 선택</p>
-                  <p className="text-xs text-white/90">카드를 골라 공격을 준비하세요</p>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-white text-base font-bold">공격 카드 선택</p>
                 <button
                   type="button"
                   onClick={() => setShowAttackPanel(false)}
@@ -2044,92 +2085,69 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               <div className="space-y-4">
                 {!selectedWord ? (
                   <>
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-yellow-300" />
-                      <p className="text-white/90 text-sm font-semibold">공격에 사용할 카드를 선택하세요</p>
-                    </div>
                     <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                       {availableDeck.map((word) => (
-                        <motion.button
+                        <button
                           key={word.id}
-                          whileHover={{ scale: 1.01 }}
-                          whileTap={{ scale: 0.97 }}
                           onClick={() => setSelectedWord(word)}
-                          className="vocamonster-card p-4 text-left flex items-center justify-between gap-3"
+                          className="vocamonster-card p-3 text-left flex items-center justify-between gap-3 w-full active:scale-95 transition-transform touch-manipulation"
                         >
-                          <div>
-                            <div className="font-black text-lg text-white leading-tight">{word.word}</div>
-                            <div className="text-[11px] text-white/90 mt-1">{word.korean_meaning}</div>
-                          </div>
-                          <Sparkles className="w-4 h-4 text-yellow-200" />
-                        </motion.button>
+                          <span className="font-bold text-base text-white">{word.word}</span>
+                          <span className="text-sm text-white/90 truncate">{word.korean_meaning}</span>
+                        </button>
                       ))}
                     </div>
                   </>
                 ) : !questionType ? (
-                  <>
-                    <div className="vocamonster-card p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10">
-                      <p className="text-white/90 text-xs uppercase tracking-[0.25em] mb-2">선택한 카드</p>
-                      <p className="text-white font-black text-xl">{selectedWord.word}</p>
-                      <p className="text-white/95 text-sm line-clamp-2">{selectedWord.korean_meaning}</p>
-                    </div>
-                    <p className="text-white font-black text-base">공격 유형 선택</p>
-                    <div className="space-y-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setQuestionType('meaning')}
-                        className="vocamonster-card p-3 flex items-center gap-3 border-yellow-400/40"
-                      >
-                        <BookOpen className="w-5 h-5 text-yellow-300" />
-                        <span className="text-white font-bold">뜻 맞추기</span>
-                      </motion.button>
-                      {selectedWord.synonyms && selectedWord.synonyms.length > 0 && (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setQuestionType('synonym')}
-                          className="vocamonster-card p-3 flex items-center gap-3 border-yellow-400/40"
-                        >
-                          <Zap className="w-5 h-5 text-yellow-300" />
-                          <span className="text-white font-bold">동의어 맞추기</span>
-                        </motion.button>
-                      )}
-                      {selectedWord.antonyms && selectedWord.antonyms.length > 0 && (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setQuestionType('antonym')}
-                          className="vocamonster-card p-3 flex items-center gap-3 border-yellow-400/40"
-                        >
-                          <Shield className="w-5 h-5 text-yellow-300" />
-                          <span className="text-white font-bold">반의어 맞추기</span>
-                        </motion.button>
-                      )}
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
+                  <div className="space-y-2 min-h-[340px] flex flex-col">
+                    <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
+                      <p className="text-white font-black text-lg">{selectedWord.word}</p>
+                      <button
                         onClick={() => {
                           setSelectedWord(null)
                           setQuestionType(null)
                         }}
-                        className="w-full text-center text-white/90 font-semibold py-3"
+                        className="text-white/70 text-xs"
                       >
-                        다른 카드 선택
-                      </motion.button>
+                        변경
+                      </button>
                     </div>
-                  </>
+                    <p className="text-white font-black text-sm">공격 유형 선택</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setQuestionType('meaning')}
+                        className="vocamonster-card p-3 flex flex-col items-center gap-2 border-yellow-400/40 active:scale-95 transition-transform"
+                      >
+                        <BookOpen className="w-5 h-5 text-yellow-300" />
+                        <span className="text-white font-bold text-xs">뜻</span>
+                      </button>
+                      {selectedWord.synonyms && selectedWord.synonyms.length > 0 && (
+                        <button
+                          onClick={() => setQuestionType('synonym')}
+                          className="vocamonster-card p-3 flex flex-col items-center gap-2 border-yellow-400/40 active:scale-95 transition-transform"
+                        >
+                          <Zap className="w-5 h-5 text-yellow-300" />
+                          <span className="text-white font-bold text-xs">동의어</span>
+                        </button>
+                      )}
+                      {selectedWord.antonyms && selectedWord.antonyms.length > 0 && (
+                        <button
+                          onClick={() => setQuestionType('antonym')}
+                          className="vocamonster-card p-3 flex flex-col items-center gap-2 border-yellow-400/40 active:scale-95 transition-transform"
+                        >
+                          <Shield className="w-5 h-5 text-yellow-300" />
+                          <span className="text-white font-bold text-xs">반의어</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <>
-                    <div className="vocamonster-card p-4 mb-4 border-white/10">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-white text-lg font-black">{selectedWord.word}</p>
-                          <p className="text-white/90 text-sm">{selectedWord.korean_meaning}</p>
-                        </div>
-                        <span className="text-white/85 text-sm">
-                          {questionType === 'meaning' ? '뜻' : questionType === 'synonym' ? '동의어' : '반의어'}
-                        </span>
-                      </div>
+                    <div className="vocamonster-card p-3 mb-4 border-white/10 flex items-center justify-between">
+                      <p className="text-white text-lg font-black">{selectedWord.word}</p>
+                      <span className="text-yellow-300 text-xs font-bold">
+                        {questionType === 'meaning' ? '뜻' : questionType === 'synonym' ? '동의어' : '반의어'}
+                      </span>
                     </div>
                     <motion.button
                       whileHover={{ scale: 1.02 }}
