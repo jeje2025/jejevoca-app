@@ -492,11 +492,12 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     return () => clearInterval(interval)
   }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
-  // 봇 자동 공격 트리거 (봇 턴일 때만)
+  // 봇 자동 공격 트리거 (봇 턴일 때만, 단 showBotDefenseResult가 false일 때만)
   useEffect(() => {
     if (!match || !user) return
 
     const isBotTurn = match.current_turn === BOT_ID
+    // showBotDefenseResult가 true이면 "계속하기" 버튼을 기다림
     const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
 
     if (isBotTurn && canAttack && match.status === 'active') {
@@ -507,7 +508,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
       return () => clearTimeout(timer)
     }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
   const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
@@ -1959,8 +1960,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
-                    // 방어 결과 모달만 닫고, 이후 턴 전환은 실시간 상태(match.current_turn === BOT_ID)로 처리
                     setShowBotDefenseResult(false)
+                    // 모달을 닫으면 useEffect가 봇 턴 체크 후 자동으로 공격 실행
                   }}
                   className="mt-4 w-full vocamonster-primary-button"
                 >
