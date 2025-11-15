@@ -405,8 +405,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           }
         }
 
-        // 봇이 방어해야 할 턴이 있는지 체크 - current_turn이 BOT_ID일 때만 방어
-        if (newMatch.is_bot_match && newMatch.current_turn === BOT_ID && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !botThinking) {
+        // 봇이 방어해야 할 턴이 있는지 체크
+        if (newMatch.is_bot_match && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !botThinking) {
           const { data: botDefenseTurn, error: botDefenseError } = await supabase
             .from('battle_turns')
             .select('*')
@@ -1234,8 +1234,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         ? Math.max(0, matchData.player1_hearts - damage)
         : Math.max(0, matchData.player2_hearts - damage)
 
-      // 턴 전환: 방어 성공 → 방어자 턴, 방어 실패 → 공격자 계속
-      const nextTurn = isCorrect ? turn.defender_id : turn.attacker_id
+      // 턴 전환: 봇이 맞췄을 때만 봇 턴 유지, 틀렸으면 플레이어 턴으로
+      const nextTurn = isCorrect ? BOT_ID : turn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
@@ -1336,8 +1336,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         ? Math.max(0, match.player1_hearts - heartLoss)
         : Math.max(0, match.player2_hearts - heartLoss)
 
-      // 턴 전환: 방어 성공 → 방어자 턴, 방어 실패 → 공격자 계속
-      const nextTurn = correct ? user.id : currentTurn.attacker_id
+      // 턴 전환: 플레이어가 틀렸을 때만 봇 턴으로, 맞췄으면 플레이어 턴 유지
+      const nextTurn = correct ? user.id : BOT_ID
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
@@ -2091,7 +2091,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               <div className="space-y-4 flex flex-col flex-1 min-h-0">
                 {!selectedWord ? (
                   <>
-                    <div className="space-y-2 h-full overflow-y-auto pr-1">
+                    <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                       {availableDeck.map((word) => (
                         <button
                           key={word.id}
@@ -2105,7 +2105,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </>
                 ) : !questionType ? (
-                  <div className="space-y-2 h-full flex flex-col overflow-y-auto">
+                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white font-black text-lg">{selectedWord.word}</p>
                       <button
@@ -2148,7 +2148,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2 h-full flex flex-col overflow-y-auto">
+                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white text-lg font-black">{selectedWord.word}</p>
                       <span className="text-yellow-300 text-xs font-bold">
