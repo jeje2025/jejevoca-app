@@ -2077,8 +2077,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               transition={{ type: 'spring', stiffness: 260, damping: 30 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="vocamonster-bottom-handle" />
-              <div className="flex items-center justify-between mb-4">
+              <div className="vocamonster-bottom-handle flex-shrink-0" />
+              <div className="flex items-center justify-between mb-4 flex-shrink-0">
                 <p className="text-white text-base font-bold">공격 카드 선택</p>
                 <button
                   type="button"
@@ -2088,7 +2088,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 flex flex-col flex-1 min-h-0">
+              <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
                 {!selectedWord ? (
                   <>
                     <div className="space-y-2 h-full overflow-y-auto pr-1">
