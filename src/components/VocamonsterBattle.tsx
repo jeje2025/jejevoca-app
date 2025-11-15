@@ -492,30 +492,22 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     return () => clearInterval(interval)
   }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
-  // 봇 자동 공격 트리거
+  // 봇 자동 공격 트리거 (봇 턴일 때만)
   useEffect(() => {
     if (!match || !user) return
 
     const isBotTurn = match.current_turn === BOT_ID
-    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel && !isMyTurn
+    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
 
     if (isBotTurn && canAttack && match.status === 'active') {
-      console.log('🤖 봇 턴 감지! 2초 후 자동 공격')
+      console.log('🤖 봇 턴! 2초 후 자동 공격')
       const timer = setTimeout(() => {
-        // 타이머 실행 시점에도 한 번 더 체크
-        if (!showAttackPanel && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !isMyTurn) {
-          console.log('✅ 봇 공격 실행')
-          botAutoAttack()
-        } else {
-          console.log('🤖 공격 취소:', { showAttackPanel, isMyTurn, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
-        }
+        botAutoAttack()
       }, 2000)
 
       return () => clearTimeout(timer)
-    } else if (isBotTurn && !canAttack) {
-      console.log('🤖 봇 턴이지만 공격 불가:', { showAttackPanel, isMyTurn, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
     }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, isMyTurn])
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
   const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
@@ -2095,7 +2087,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 h-[50vh] max-h-[400px] flex flex-col">
+              <div className="space-y-4 flex flex-col flex-1 min-h-0">
                 {!selectedWord ? (
                   <>
                     <div className="space-y-2 h-full overflow-y-auto pr-1">
