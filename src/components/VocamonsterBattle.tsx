@@ -405,8 +405,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
           }
         }
 
-        // 봇이 방어해야 할 턴이 있는지 체크 (botAutoAnswer는 나중에 정의되므로 ref 사용)
-        if (newMatch.is_bot_match && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !botThinking) {
+        // 봇이 방어해야 할 턴이 있는지 체크 - current_turn이 BOT_ID일 때만 방어
+        if (newMatch.is_bot_match && newMatch.current_turn === BOT_ID && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !botThinking) {
           const { data: botDefenseTurn, error: botDefenseError } = await supabase
             .from('battle_turns')
             .select('*')
@@ -418,7 +418,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             .maybeSingle()
 
           if (!botDefenseError && botDefenseTurn) {
-            console.log('🤖 봇 방어 턴 감지, 자동 답변 시작:', botDefenseTurn)
+            console.log('🤖 봇 방어 턴 감지 (current_turn = BOT), 자동 답변 시작:', botDefenseTurn)
             setBotThinking(true)
             // 1초 후 봇이 답변하도록 (botAutoAnswer는 나중에 정의되므로 직접 호출)
             setTimeout(() => {
