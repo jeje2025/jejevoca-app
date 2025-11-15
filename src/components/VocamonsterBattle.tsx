@@ -321,10 +321,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
   // 모달 열릴 때 body 스크롤 막기
   useEffect(() => {
-    // 퀴즈 모달이 아닐 때만 스크롤 막기 (퀴즈 모달일 때는 스크롤 허용)
-    const shouldBlockScroll = !showQuestion
+    const isModalOpen = showQuestion || showBotDefenseResult || showOpponentDefenseResult || showAttackPanel
 
-    if (shouldBlockScroll) {
+    if (isModalOpen) {
       // 현재 스크롤 위치 저장
       const scrollY = window.scrollY
       document.body.style.position = 'fixed'
@@ -349,7 +348,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       document.body.style.width = ''
       document.body.style.overflow = ''
     }
-  }, [showQuestion])
+  }, [showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
   // 폴링 기반 매치/방어 턴 체크
   useEffect(() => {
@@ -491,7 +490,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [matchId, user?.id])
+  }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
   // 봇 자동 공격 트리거
   useEffect(() => {
@@ -2082,10 +2081,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 min-h-[400px]">
                 {!selectedWord ? (
                   <>
-                    <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                       {availableDeck.map((word) => (
                         <button
                           key={word.id}
@@ -2099,7 +2098,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </>
                 ) : !questionType ? (
-                  <div className="space-y-2 min-h-[340px] flex flex-col">
+                  <div className="space-y-2 flex flex-col">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white font-black text-lg">{selectedWord.word}</p>
                       <button
