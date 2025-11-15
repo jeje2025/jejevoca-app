@@ -573,3 +573,8 @@
 .vocamonster-bot-defense-fail {
   color: #FCA5A5 !important;
 }
+
+/* 포인트 텍스트 강제 노란색 */
+.vocamonster-points-text {
+  color: #FEF08A !important;
+}

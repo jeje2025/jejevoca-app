@@ -1209,7 +1209,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         addBattleLog('🛡️ 방어 성공! 반격 기회를 얻었습니다! ⚡', 'defend')
       } else {
         addBattleLog(`💔 방어 실패! 하트를 ${heartLoss}개 잃었습니다! 💥`, 'damage')
-        // 데미지 애니메이션은 폴링에서 하트 변화 감지 시 한 번만 표시
+        // 틀렸을 때 즉시 데미지 애니메이션 표시
+        setDamagePosition('left')
+        setShowDamageAnimation(true)
+        setTimeout(() => setShowDamageAnimation(false), 800)
       }
 
       // 턴 업데이트
@@ -1461,7 +1464,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               <p className="vocamonster-text-secondary text-xs uppercase tracking-wide">Bet Stakes</p>
               <div className="flex items-center gap-2 mt-1">
                 <Coins className="w-5 h-5 text-yellow-400" />
-                <p className="text-yellow-200 text-2xl font-black">
+                <p className="vocamonster-points-text text-2xl font-black drop-shadow-lg">
                   {betPointsDisplay.toLocaleString()} P
                 </p>
               </div>
@@ -1492,7 +1495,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             </motion.div>
           )}
 
-        {/* 배틀 필드 */}
+        {/* 배틀 필드 - 퀴즈 화면이 표시될 때는 숨김 */}
+        {!showQuestion && (
         <div className="relative mb-6 overflow-visible">
           {/* 상대방 (위) */}
           <motion.div
@@ -1563,8 +1567,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             </AnimatePresence>
           </motion.div>
 
-          {/* VS 표시 */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+          {/* VS 표시 - 플레이어 카드 사이에 배치 */}
+          <div className="relative flex items-center justify-center my-2 z-10">
             <motion.div
               animate={{
                 scale: [1, 1.2, 1],
@@ -1576,7 +1580,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
               }}
               className="flex items-center justify-center"
             >
-              <img src="/vocamonster/vs-icon.png" alt="VS" className="w-24 h-24 object-contain drop-shadow-2xl vocamonster-icon-transparent" />
+              <img src="/vocamonster/vs-icon.png" alt="VS" className="w-16 h-16 object-contain drop-shadow-2xl vocamonster-icon-transparent" />
             </motion.div>
           </div>
 
@@ -1677,6 +1681,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             </AnimatePresence>
           </motion.div>
         </div>
+        )}
 
         {/* 턴 표시 */}
         {isMyTurn && (
@@ -1732,12 +1737,16 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-hidden"
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={(e) => e.stopPropagation()}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 50 }}
+              initial={{ scale: 0.8, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: 50, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
             >
               
@@ -1901,32 +1910,36 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[200] overflow-hidden"
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+            onClick={(e) => e.stopPropagation()}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 50 }}
+              initial={{ scale: 0.8, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: 50, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
             >
               <div className="relative z-10 text-center space-y-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-purple-300">OPPONENT DEFENSE</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-white">OPPONENT DEFENSE</p>
                 <h3 className="text-3xl font-black text-white mb-2">
                   {opponentDefenseResult.word}
                 </h3>
-                <p className="text-sm text-purple-100 mb-4">
+                <p className="text-sm text-white/90 mb-4">
                   {opponentDefenseResult.questionType === 'meaning' && '뜻 방어 결과'}
                   {opponentDefenseResult.questionType === 'synonym' && '동의어 방어 결과'}
                   {opponentDefenseResult.questionType === 'antonym' && '반의어 방어 결과'}
                 </p>
 
-                <div className="space-y-3 text-left vocamonster-card p-4 bg-black/30 border border-purple-400/40">
-                  <p className="text-xs text-purple-200 font-semibold">상대방의 답</p>
-                  <p className="text-base font-bold text-purple-50">
+                <div className="space-y-3 text-left vocamonster-card p-4 bg-black/30 border border-white/20">
+                  <p className="text-xs text-white/80 font-semibold">상대방의 답</p>
+                  <p className="text-base font-bold text-white">
                     {opponentDefenseResult.opponentAnswer || '—'}
                   </p>
-                  <p className="text-xs text-purple-200 font-semibold mt-3">정답</p>
-                  <p className="text-base font-bold text-emerald-200">
+                  <p className="text-xs text-white/80 font-semibold mt-3">정답</p>
+                  <p className="text-base font-bold text-white">
                     {opponentDefenseResult.correctAnswer || '—'}
                   </p>
                 </div>
@@ -1936,7 +1949,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     <div className="flex flex-col items-center gap-2">
                       <DefenseSuccessIcon size={200} />
                       <p className="vocamonster-correct-text font-black text-xl">상대방 방어 성공!</p>
-                      <p className="text-purple-100 text-sm">상대방이 반격 기회를 얻었습니다.</p>
+                      <p className="text-white/90 text-sm">상대방이 반격 기회를 얻었습니다.</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
@@ -1955,8 +1968,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                           }}
                         />
                       </motion.div>
-                      <p className="text-red-300 font-black text-xl">상대방 방어 실패!</p>
-                      <p className="text-purple-100 text-sm">상대방이 데미지를 받았습니다.</p>
+                      <p className="vocamonster-bot-defense-fail font-black text-xl">상대방 방어 실패!</p>
+                      <p className="text-white/90 text-sm">상대방이 데미지를 받았습니다.</p>
                     </div>
                   )}
                 </div>
@@ -1977,7 +1990,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       </AnimatePresence>
 
       {/* Attack CTA */}
-      {isMyTurn && !showQuestion && (
+      {isMyTurn && !showQuestion && !showOpponentDefenseResult && !showBotDefenseResult && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-sm px-6 z-30 pointer-events-none">
           <motion.button
             whileTap={{ scale: 0.97 }}
@@ -1998,7 +2011,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       )}
 
       <AnimatePresence>
-        {isMyTurn && !showQuestion && showAttackPanel && (
+        {isMyTurn && !showQuestion && !showOpponentDefenseResult && !showBotDefenseResult && showAttackPanel && (
           <motion.div
             className="vocamonster-attack-sheet-overlay"
             initial={{ opacity: 0 }}
@@ -2127,7 +2140,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                       <motion.img
                         src="/vocamonster/attack.png"
                         alt="Attack"
-                        className="w-16 h-16 object-contain"
+                        className="w-10 h-10 object-contain"
                         animate={{
                           rotate: [0, -10, 10, -10, 10, 0],
                           scale: [1, 1.1, 1, 1.1, 1],
@@ -2138,7 +2151,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                           ease: "easeInOut"
                         }}
                       />
-                      <span className="tracking-wide text-lg font-black">공격 실행</span>
+                      <span className="tracking-wide text-base font-black">공격 실행</span>
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.97 }}
@@ -2158,7 +2171,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       </AnimatePresence>
 
       {/* Waiting for Opponent */}
-      {!isMyTurn && !showQuestion && (
+      {!isMyTurn && !showQuestion && !showOpponentDefenseResult && !showBotDefenseResult && (
         <div className="relative z-10 px-6 space-y-3 pb-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

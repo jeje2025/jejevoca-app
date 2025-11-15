@@ -589,7 +589,7 @@ export function VocamonsterScreen({ onBack, onStartBattle, onOpenDeck, userPoint
                     whileHover={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                     transition={{ duration: 0.6 }}
                   >
-                    <img src="/src/assets/vocamonster/bot-icon.png" alt="봇 대전" className="w-20 h-20 object-contain vocamonster-icon-transparent" />
+                    <img src="/vocamonster/bot-icon.png" alt="봇 대전" className="w-20 h-20 object-contain vocamonster-icon-transparent" />
                   </motion.div>
                   <div className="text-center">
                     <div className="vocamonster-text-primary text-base font-bold">봇 대전</div>
@@ -715,7 +715,7 @@ export function VocamonsterScreen({ onBack, onStartBattle, onOpenDeck, userPoint
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-yellow-300 font-black text-lg">{match.bet_points} P</div>
+                    <div className="vocamonster-points-text font-black text-lg drop-shadow-lg">{match.bet_points} P</div>
                     <button
                       type="button"
                       onClick={() => joinMatch(match.id)}
@@ -750,7 +750,7 @@ export function VocamonsterScreen({ onBack, onStartBattle, onOpenDeck, userPoint
               whileHover={{ y: [-2, 2, -2], rotate: [0, -3, 3, 0] }}
               transition={{ duration: 0.8, repeat: Infinity }}
             >
-              <img src="/src/assets/vocamonster/deck-icon.png" alt="카드 덱" className="w-20 h-20 object-contain vocamonster-icon-transparent" />
+              <img src="/vocamonster/deck-icon.png" alt="카드 덱" className="w-20 h-20 object-contain vocamonster-icon-transparent" />
             </motion.div>
             <div className="flex-1 text-left">
               <div className="vocamonster-text-primary text-lg font-bold">카드 덱 관리</div>
