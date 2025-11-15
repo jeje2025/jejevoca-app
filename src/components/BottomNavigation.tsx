@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
+import { Gamepad2, Bot, Users, User } from 'lucide-react';
 import { imgHome01 } from '../imports/svg-5stpn';
-import { imgFrame, imgFrame1, imgFrame2, imgFrame3 } from '../imports/svg-vnq26';
+import { imgFrame2, imgFrame3 } from '../imports/svg-vnq26';
 
 interface BottomNavigationProps {
   currentScreen: string;
@@ -21,13 +22,41 @@ function NavigationIcon({ src, active }: { src: string; active: boolean }) {
   );
 }
 
+function GameIcon({ active }: { active: boolean }) {
+  return (
+    <div className="relative w-6 h-6 flex items-center justify-center">
+      <Gamepad2 
+        className={`w-6 h-6 transition-all duration-300 ${
+          active ? 'brightness-0' : 'brightness-0 invert'
+        }`} 
+        strokeWidth={1.5}
+        style={{ filter: active ? 'brightness(0)' : 'brightness(0) invert(1)' }}
+      />
+    </div>
+  );
+}
+
+function AIIcon({ active }: { active: boolean }) {
+  return (
+    <div className="relative w-6 h-6 flex items-center justify-center">
+      <Bot 
+        className={`w-6 h-6 transition-all duration-300 ${
+          active ? 'brightness-0' : 'brightness-0 invert'
+        }`} 
+        strokeWidth={1.5}
+        style={{ filter: active ? 'brightness(0)' : 'brightness(0) invert(1)' }}
+      />
+    </div>
+  );
+}
+
 export function BottomNavigation({ currentScreen, onScreenChange }: BottomNavigationProps) {
   const navItems = [
-    { icon: imgHome01, screen: 'home' as const, active: currentScreen === 'home' },
-    { icon: imgFrame, screen: 'vocamonster' as const, active: currentScreen === 'vocamonster' },
-    { icon: imgFrame1, screen: 'ai' as const, active: currentScreen === 'ai' },
-    { icon: imgFrame2, screen: 'leaderboard' as const, active: currentScreen === 'leaderboard' },
-    { icon: imgFrame3, screen: 'profile' as const, active: currentScreen === 'profile' },
+    { icon: imgHome01, screen: 'home' as const, active: currentScreen === 'home', isGameIcon: false, isAIIcon: false },
+    { icon: '', screen: 'vocamonster' as const, active: currentScreen === 'vocamonster', isGameIcon: true, isAIIcon: false },
+    { icon: '', screen: 'ai' as const, active: currentScreen === 'ai', isGameIcon: false, isAIIcon: true },
+    { icon: imgFrame2, screen: 'leaderboard' as const, active: currentScreen === 'leaderboard', isGameIcon: false, isAIIcon: false },
+    { icon: imgFrame3, screen: 'profile' as const, active: currentScreen === 'profile', isGameIcon: false, isAIIcon: false },
   ];
 
   // Perfect mathematical positioning system for 5 items
@@ -77,7 +106,13 @@ export function BottomNavigation({ currentScreen, onScreenChange }: BottomNaviga
                   left: `${iconPositions[index]}px`
                 }}
               >
-                <NavigationIcon src={item.icon} active={item.active} />
+                {item.isGameIcon ? (
+                  <GameIcon active={item.active} />
+                ) : item.isAIIcon ? (
+                  <AIIcon active={item.active} />
+                ) : (
+                  <NavigationIcon src={item.icon} active={item.active} />
+                )}
               </motion.button>
             ))}
           </div>

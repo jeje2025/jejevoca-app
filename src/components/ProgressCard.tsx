@@ -1,8 +1,8 @@
 import { motion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
-import Icons from '../imports/Icons-13-1005';
 import { useState, useEffect } from 'react';
 import logoImage from 'figma:asset/2a6c1d3bb872264b344a42f0c6e792cd9cea4b63.png';
+import bookIcon from '../assets/vocamonster/book-icon.png';
 
 interface ProgressCardProps {
   illustrationImage: string;
@@ -112,8 +112,12 @@ export function ProgressCard({
           transformStyle: 'preserve-3d'
         }}
       >
-        <Icons />
-        
+        <img
+          src={bookIcon}
+          alt="Book"
+          className="w-full h-full object-contain"
+        />
+
         {/* Magical floating particles around the book icon */}
         <motion.div
           className="absolute -top-3 -left-3 w-2 h-2 bg-yellow-400/60 rounded-full"

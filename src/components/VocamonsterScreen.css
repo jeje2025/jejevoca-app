@@ -1,0 +1,575 @@
+/* VocamonsterScreen 다크 테마 스타일 */
+.vocamonster-container {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0E1647 0%, #0A1033 100%);
+  position: relative;
+}
+
+.vocamonster-header {
+  width: 100%;
+  height: 6rem;
+  background: linear-gradient(0deg, #1D2766 0%, #171F52 100%);
+  box-shadow: 0px 8px 24px 0px rgba(17, 23, 61, 0.80);
+  position: relative;
+  z-index: 10;
+}
+
+.vocamonster-card {
+  background: linear-gradient(0deg, #1D2766 0%, #171F52 100%);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(73, 91, 204, 0.3);
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vocamonster-card:hover {
+  border-color: rgba(73, 91, 204, 0.5);
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.vocamonster-card-border-active {
+  border-color: #495BCC;
+  box-shadow: 0px 4px 12px rgba(73, 91, 204, 0.3);
+}
+
+.vocamonster-icon-bg {
+  background: #495BCC;
+  border-radius: 0.5rem;
+  box-shadow: 0px 4px 12px rgba(73, 91, 204, 0.4);
+}
+
+.vocamonster-number-bg {
+  background: #495BCC;
+  border-radius: 0.5rem;
+  box-shadow: 0px 2px 8px rgba(73, 91, 204, 0.3);
+}
+
+.vocamonster-accent-red {
+  background: #E51C44;
+}
+
+.vocamonster-text-primary {
+  color: rgb(226, 232, 240);
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.vocamonster-text-secondary {
+  color: rgb(203, 213, 225);
+}
+
+/* Grid 레이아웃 보정 */
+.vocamonster-container .grid {
+  display: grid;
+}
+
+.vocamonster-container .grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vocamonster-container .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vocamonster-container .grid-cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* 아이콘 투명 배경 처리 */
+.vocamonster-icon-transparent {
+  background: transparent !important;
+  mix-blend-mode: normal;
+}
+
+.vocamonster-container img {
+  background: transparent !important;
+  mix-blend-mode: normal;
+}
+
+/* Vocamonster Deck 전용 스타일 */
+.vocamonster-layout {
+  width: 100%;
+  max-width: 24rem;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0E1647 0%, #0A1033 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.vocamonster-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  padding-bottom: 6rem;
+}
+
+.vocamonster-section {
+  background: linear-gradient(180deg, rgba(22, 31, 80, 0.9) 0%, rgba(13, 18, 50, 0.96) 100%);
+  border-radius: 1rem;
+  border: 1px solid rgba(73, 91, 204, 0.35);
+  box-shadow: 0px 12px 34px rgba(5, 8, 20, 0.6);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vocamonster-section-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.9);
+  text-transform: uppercase;
+}
+
+.vocamonster-section-desc {
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.vocamonster-search-wrapper {
+  position: relative;
+}
+
+.vocamonster-search-input {
+  width: 100%;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(73, 91, 204, 0.45);
+  background: rgba(16, 23, 63, 0.8);
+  padding: 0.85rem 1rem 0.85rem 2.75rem;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vocamonster-input {
+  background: rgba(16, 23, 63, 0.8);
+  border: 1px solid rgba(73, 91, 204, 0.45);
+  color: #e2e8f0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vocamonster-input::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.vocamonster-input:focus {
+  outline: none;
+  border-color: rgba(79, 142, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(79, 142, 255, 0.1);
+}
+
+.vocamonster-search-input::placeholder {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.vocamonster-search-input:focus {
+  outline: none;
+  border-color: #7b8bff;
+  box-shadow: 0 0 0 2px rgba(123, 139, 255, 0.25);
+}
+
+.vocamonster-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.1rem;
+  height: 1.1rem;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.vocamonster-chip-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.vocamonster-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(73, 91, 204, 0.45);
+  background: rgba(16, 23, 63, 0.7);
+  color: rgba(226, 232, 240, 0.8);
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 2.5rem;
+  transition: all 0.2s ease;
+}
+
+.vocamonster-chip.small {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+}
+
+.vocamonster-chip.active {
+  background: linear-gradient(90deg, #495BCC 0%, #5F6FF2 100%);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0px 10px 24px rgba(73, 91, 204, 0.35);
+}
+
+.vocamonster-tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  border-radius: 0.85rem;
+  padding: 0.35rem;
+  background: rgba(12, 16, 38, 0.85);
+  border: 1px solid rgba(73, 91, 204, 0.35);
+}
+
+.vocamonster-tab {
+  flex: 1;
+  border-radius: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.7);
+  background: transparent;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.vocamonster-tab.active {
+  background: linear-gradient(90deg, #495BCC 0%, #6F5BFF 100%);
+  color: #fff;
+  box-shadow: 0px 10px 24px rgba(73, 91, 204, 0.35);
+}
+
+.vocamonster-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.vocamonster-card--padded {
+  padding: 1.15rem 1.2rem;
+}
+
+.vocamonster-card-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.vocamonster-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.vocamonster-tag {
+  border-radius: 0.75rem;
+  padding: 0.2rem 0.65rem;
+  background: rgba(73, 91, 204, 0.25);
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.vocamonster-select-chip {
+  border-radius: 0.9rem;
+  border: 1px solid rgba(73, 91, 204, 0.45);
+  background: rgba(12, 16, 40, 0.85);
+  color: rgba(226, 232, 240, 0.9);
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.vocamonster-select-chip.is-selected {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.75);
+  color: #7dd3fc;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+
+.vocamonster-select-chip.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vocamonster-icon-button {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 120, 120, 0.5);
+  background: rgba(64, 13, 24, 0.65);
+  color: #feb2b2;
+  padding: 0.5rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  transition: all 0.2s ease;
+}
+
+.vocamonster-icon-button:hover {
+  color: #fff;
+  border-color: rgba(255, 160, 160, 0.8);
+}
+
+.vocamonster-empty-card {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.vocamonster-empty-card img {
+  width: 4rem;
+  margin: 0 auto 0.75rem auto;
+  opacity: 0.4;
+}
+
+.vocamonster-primary-button {
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #33D1FF 0%, #6F5BFF 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.95rem 1.25rem;
+  text-align: center;
+  box-shadow: 0px 18px 35px rgba(65, 133, 255, 0.35);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.vocamonster-primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vocamonster-primary-button:active {
+  transform: scale(0.98);
+}
+
+.vocamonster-deck-icon-wrapper {
+  width: 3.25rem;
+  height: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  background: rgba(73, 91, 204, 0.35);
+  border: 1px solid rgba(123, 146, 255, 0.45);
+}
+
+.vocamonster-deck-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  object-fit: contain;
+}
+
+.vocamonster-outline-button {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(73, 91, 204, 0.5);
+  background: rgba(18, 24, 56, 0.85);
+  color: rgba(226, 232, 240, 0.95);
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 2.75rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.vocamonster-outline-button.cta {
+  background: linear-gradient(90deg, #5AD0FF 0%, #7075FF 100%);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  box-shadow: 0px 12px 28px rgba(90, 160, 255, 0.35);
+}
+
+.vocamonster-outline-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vocamonster-selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: rgba(18, 24, 56, 0.9);
+  border: 1px solid rgba(73, 91, 204, 0.45);
+}
+
+.vocamonster-sticky-cta {
+  position: sticky;
+  bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: rgba(8, 12, 34, 0.9);
+  border-radius: 1rem;
+  border: 1px solid rgba(73, 91, 204, 0.4);
+  padding: 1rem;
+  box-shadow: 0px 15px 35px rgba(5, 8, 20, 0.6);
+  backdrop-filter: blur(12px);
+}
+
+.vocamonster-selection-pill {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(33, 41, 92, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  min-width: 110px;
+}
+
+.vocamonster-selection-fab {
+  width: fit-content;
+  align-self: flex-end;
+  border-radius: 999px;
+  padding: 0.65rem 1.5rem;
+  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0px 20px 30px rgba(16, 185, 129, 0.35);
+}
+
+.vocamonster-selection-fab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.vocamonster-floating-add {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.vocamonster-floating-add .vocamonster-selection-pill,
+.vocamonster-floating-add .vocamonster-selection-fab {
+  pointer-events: auto;
+}
+
+.vocamonster-attack-cta {
+  width: 100%;
+  border-radius: 1.25rem;
+  padding: 0.9rem 1.15rem;
+  background: linear-gradient(90deg, #4338CA 0%, #7C3AED 100%);
+  box-shadow: 0px 20px 40px rgba(76, 29, 149, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.vocamonster-attack-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.vocamonster-attack-sheet {
+  width: 100%;
+  max-width: 24rem;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: linear-gradient(180deg, rgba(12, 17, 45, 0.98) 0%, rgba(8, 12, 34, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 1.25rem 1.5rem 2rem 1.5rem;
+  box-shadow: 0px -20px 50px rgba(0, 0, 0, 0.55);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+}
+
+.vocamonster-bottom-handle {
+  width: 60px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 auto 1.25rem auto;
+}
+
+/* 타이머 강제 색상 */
+.vocamonster-timer-text {
+  color: #FEF3C7 !important;
+}
+
+.vocamonster-timer-icon {
+  color: #FEF3C7 !important;
+}
+
+/* 오답 결과 강제 색상 */
+.vocamonster-wrong-icon {
+  color: #FCA5A5 !important;
+  fill: #FCA5A5 !important;
+}
+
+.vocamonster-wrong-text {
+  color: #FCA5A5 !important;
+}
+
+.vocamonster-wrong-damage {
+  color: #F87171 !important;
+}
+
+/* 패배 화면 강제 색상 */
+.vocamonster-defeat-icon {
+  color: #FCA5A5 !important;
+}
+
+.vocamonster-defeat-title {
+  color: #FCA5A5 !important;
+}
+
+.vocamonster-defeat-points {
+  color: #F87171 !important;
+}
+
+/* 정답 결과 강제 색상 */
+.vocamonster-correct-icon {
+  color: #86EFAC !important;
+  fill: #86EFAC !important;
+}
+
+.vocamonster-correct-text {
+  color: #86EFAC !important;
+}
+
+.vocamonster-correct-message {
+  color: #FFFFFF !important;
+}
+
+/* 내 턴 텍스트 강제 흰색 */
+.vocamonster-turn-text {
+  color: #FFFFFF !important;
+}
+
+/* 봇 방어 실패 텍스트 강제 빨간색 */
+.vocamonster-bot-defense-fail {
+  color: #FCA5A5 !important;
+}

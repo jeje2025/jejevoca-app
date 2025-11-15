@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Send, Bot, User, Lightbulb, BookOpen, Calculator, Atom, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Shuffle, Link2, Lightbulb, Smile, ArrowLeft } from 'lucide-react';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface AITutorScreenProps {
   onBack: () => void;
@@ -11,21 +12,41 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
-  suggestedQuestions?: string[];
+  isLoading?: boolean;
 }
 
-const suggestedTopics = [
-  { icon: Calculator, text: "Help me with algebra problems", category: "Math" },
-  { icon: Atom, text: "Explain how atoms work", category: "Science" },
-  { icon: BookOpen, text: "Grammar and writing tips", category: "English" },
-  { icon: Lightbulb, text: "Better study techniques", category: "Study Tips" }
+const tutorFeatures = [
+  { 
+    icon: Shuffle, 
+    text: "무슨 단어랑 헷갈린걸까?", 
+    category: "혼동어휘",
+    prompt: "이 단어와 헷갈리는 유사한 영어 단어들을 찾아주고, 어떻게 구분해야 하는지 알려줘:"
+  },
+  { 
+    icon: Link2, 
+    text: "무슨 전치사랑 같이 쓰일까?", 
+    category: "콜로케이션",
+    prompt: "이 단어와 자주 함께 쓰이는 전치사 콜로케이션을 알려주고 예문도 보여줘:"
+  },
+  { 
+    icon: Lightbulb, 
+    text: "이 단어가 도저히 안외워져.", 
+    category: "암기법",
+    prompt: "이 단어를 쉽게 외울 수 있는 창의적인 연상법이나 어원, 스토리를 만들어줘:"
+  },
+  { 
+    icon: Smile, 
+    text: "이 단어는 긍정적? 부정적?", 
+    category: "톤분석",
+    prompt: "이 단어의 톤과 뉘앙스를 분석해줘. 긍정적인지 부정적인지, 중립적인지, 그리고 어떤 상황에서 사용하면 좋은지 알려줘:"
+  }
 ];
 
 export function AITutorScreen({ onBack }: AITutorScreenProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm your AI learning assistant. I'm here to help you with any subject - math, science, english, history, or study strategies. What would you like to explore today?",
+      text: "안녕하세요! 💙 저는 천개의 바람 AI튜터입니다. 영어 단어 학습과 편입 준비를 돕기 위해 여기 있어요. 위 기능 중 하나를 선택하시거나, 자유롭게 질문해주세요!",
       isUser: false,
       timestamp: new Date()
     }
@@ -33,6 +54,13 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showWordInput, setShowWordInput] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState<typeof tutorFeatures[0] | null>(null);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,6 +69,91 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  const callGeminiAPI = async (prompt: string): Promise<string> => {
+    try {
+      // 대화 히스토리를 Gemini API 형식으로 변환
+      const history = messages
+        .filter(msg => !msg.isLoading) // 로딩 메시지 제외
+        .map(msg => ({
+          role: msg.isUser ? 'user' : 'model',
+          parts: [{ text: msg.text }]
+        }));
+
+      // 현재 사용자 메시지 추가
+      const conversationHistory = [
+        ...history,
+        { role: 'user', parts: [{ text: prompt }] }
+      ];
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e2f98fad/ai-chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`
+          },
+          body: JSON.stringify({ 
+            conversationHistory 
+          })
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('API Error Response:', data);
+        throw new Error(data.error || 'API request failed');
+      }
+
+      console.log('API Success Response:', data);
+      return data.response || '죄송합니다. 응답을 생성하는 중 오류가 발생했습니다.';
+    } catch (error) {
+      console.error('Gemini API Error:', error);
+      return '죄송합니다. 응답을 생성하는 중 오류가 발생했습니다. 다시 시도해주세요. 에러: ' + (error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const handleFeatureClick = (feature: typeof tutorFeatures[0]) => {
+    setSelectedFeature(feature);
+    
+    // 멘탈케어는 단어 입력 없이 바로 실행
+    if (feature.category === "멘탈케어") {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        text: feature.text,
+        isUser: true,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      
+      sendToGemini(feature.prompt);
+    } else {
+      setShowWordInput(true);
+      setInputValue('');
+    }
+  };
+
+  const handleWordSubmit = () => {
+    if (!inputValue.trim() || !selectedFeature) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: `${selectedFeature.text}\n단어: "${inputValue}"`,
+      isUser: true,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    
+    const fullPrompt = `${selectedFeature.prompt} "${inputValue}"`;
+    sendToGemini(fullPrompt);
+    
+    setInputValue('');
+    setShowWordInput(false);
+    setSelectedFeature(null);
+  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -53,197 +166,39 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const userInput = inputValue;
     setInputValue('');
+
+    sendToGemini(userInput);
+  };
+
+  const sendToGemini = async (prompt: string) => {
     setIsTyping(true);
 
-    // Simulate realistic AI response delay
-    const responseDelay = Math.random() * 1500 + 1000; // 1-2.5 seconds
-    
-    setTimeout(() => {
-      const { response, followUpQuestions } = getSmartAIResponse(inputValue);
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: response,
-        isUser: false,
-        timestamp: new Date(),
-        suggestedQuestions: followUpQuestions
-      };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsTyping(false);
-    }, responseDelay);
-  };
-
-  const getSmartAIResponse = (userInput: string): { response: string; followUpQuestions: string[] } => {
-    const input = userInput.toLowerCase();
-    
-    // Math responses
-    if (input.includes('math') || input.includes('algebra') || input.includes('equation') || input.includes('solve') || input.includes('calculus') || input.includes('geometry')) {
-      const mathResponses = [
-        "I'd love to help with math! For algebra, think of equations like balanced scales - whatever you do to one side, do to the other. Math is all about patterns and logical thinking.",
-        "Math can be challenging but rewarding! Let's break it down step by step. Remember: every problem has a solution, and practice builds confidence.",
-        "Great choice! Math builds logical thinking and problem-solving skills. The key is understanding the 'why' behind each step, not just memorizing formulas."
-      ];
-      const mathQuestions = [
-        "Show me a step-by-step algebra solution",
-        "Explain fractions with real examples",
-        "How do I tackle word problems?",
-        "What are some math study tips?",
-        "Help with geometry concepts"
-      ];
-      return {
-        response: mathResponses[Math.floor(Math.random() * mathResponses.length)],
-        followUpQuestions: mathQuestions.slice(0, 3)
-      };
-    }
-    
-    // Science responses
-    if (input.includes('science') || input.includes('atom') || input.includes('chemistry') || input.includes('physics') || input.includes('biology') || input.includes('molecule')) {
-      const scienceResponses = [
-        "Science is amazing! 🔬 The natural world is full of fascinating patterns. From atoms to ecosystems, everything connects in beautiful ways. Science teaches us to observe, question, and discover.",
-        "I love science questions! Science helps us understand how our world works - from the tiniest particles to the vastness of space. It's all about curiosity and exploration!",
-        "Science is the art of discovery! Remember the scientific method: observe, hypothesize, experiment, analyze, conclude. Every great discovery started with a question."
-      ];
-      const scienceQuestions = [
-        "How do atoms form molecules?",
-        "Explain photosynthesis simply",
-        "What makes planets orbit the sun?",
-        "How does DNA work?",
-        "Why do chemical reactions happen?"
-      ];
-      return {
-        response: scienceResponses[Math.floor(Math.random() * scienceResponses.length)],
-        followUpQuestions: scienceQuestions.slice(0, 3)
-      };
-    }
-    
-    // English/Language responses
-    if (input.includes('english') || input.includes('grammar') || input.includes('writing') || input.includes('essay') || input.includes('literature')) {
-      const englishResponses = [
-        "English is the art of communication! 📝 Good writing starts with clear thinking. Whether it's grammar, essays, or creative writing, language is your tool for sharing ideas with the world.",
-        "Language is powerful! Great writing combines clear structure with engaging content. Remember: write for your reader, revise ruthlessly, and read everything aloud.",
-        "Grammar can be tricky, but it's the foundation of clear communication. Think of grammar rules as tools that help your ideas shine, not barriers to creativity!"
-      ];
-      const englishQuestions = [
-        "How to write strong paragraphs?",
-        "Fix my grammar mistakes",
-        "Make my writing more engaging",
-        "Understand literary themes",
-        "Improve my vocabulary"
-      ];
-      return {
-        response: englishResponses[Math.floor(Math.random() * englishResponses.length)],
-        followUpQuestions: englishQuestions.slice(0, 3)
-      };
-    }
-    
-    // Study techniques
-    if (input.includes('study') || input.includes('technique') || input.includes('learn') || input.includes('memory') || input.includes('focus') || input.includes('concentration')) {
-      const studyResponses = [
-        "Smart studying beats hard studying every time! 🧠 The best techniques: Pomodoro (25 min focus, 5 min break), active recall (test yourself), and spaced repetition (review over time).",
-        "Great question! Effective learning happens when you engage multiple senses and make connections. Try teaching concepts to others - if you can explain it, you understand it!",
-        "Learning how to learn is the most valuable skill! Focus on understanding over memorization, take regular breaks, and connect new information to what you already know."
-      ];
-      const studyQuestions = [
-        "What's the Pomodoro Technique?",
-        "How to improve memory retention?",
-        "Best ways to take notes?",
-        "Overcome procrastination tips",
-        "Create effective study schedules"
-      ];
-      return {
-        response: studyResponses[Math.floor(Math.random() * studyResponses.length)],
-        followUpQuestions: studyQuestions.slice(0, 3)
-      };
-    }
-    
-    // History responses
-    if (input.includes('history') || input.includes('historical') || input.includes('past') || input.includes('civilization') || input.includes('war') || input.includes('ancient')) {
-      const response = "History helps us understand the present! 📚 Every event connects to others in fascinating ways. History isn't just dates and names - it's the story of human choices, consequences, and progress.";
-      const historyQuestions = [
-        "How did ancient civilizations develop?",
-        "Why do historical patterns repeat?",
-        "What caused major world wars?",
-        "How to remember historical dates?",
-        "Connect history to current events"
-      ];
-      return {
-        response,
-        followUpQuestions: historyQuestions.slice(0, 3)
-      };
-    }
-    
-    // Social Studies
-    if (input.includes('social') || input.includes('geography') || input.includes('culture') || input.includes('government') || input.includes('economics')) {
-      const response = "Social studies explores how people and societies work! 🌍 From geography to cultures to government systems - it's all about understanding human relationships and our shared world.";
-      const socialQuestions = [
-        "How do governments work?",
-        "What shapes different cultures?",
-        "Explain supply and demand",
-        "How geography affects society",
-        "Understanding world religions"
-      ];
-      return {
-        response,
-        followUpQuestions: socialQuestions.slice(0, 3)
-      };
-    }
-    
-    // Homework help
-    if (input.includes('homework') || input.includes('assignment') || input.includes('project')) {
-      const response = "I'm here to guide you through your homework! 📖 Remember, the goal is learning and understanding, not just getting answers. Let's break down your assignment step by step.";
-      const homeworkQuestions = [
-        "How to start a research project?",
-        "Break down complex assignments",
-        "Time management for homework",
-        "When to ask for help?",
-        "Make homework less stressful"
-      ];
-      return {
-        response,
-        followUpQuestions: homeworkQuestions.slice(0, 3)
-      };
-    }
-    
-    // Test/exam preparation
-    if (input.includes('test') || input.includes('exam') || input.includes('quiz') || input.includes('preparation')) {
-      const response = "Test prep is all about strategy! 📝 Focus on understanding concepts deeply, practice with variety, manage your time well, and take care of your physical and mental health.";
-      const testQuestions = [
-        "Create effective study guides",
-        "Manage test anxiety",
-        "Best review strategies",
-        "Time management during exams",
-        "What to do the night before?"
-      ];
-      return {
-        response,
-        followUpQuestions: testQuestions.slice(0, 3)
-      };
-    }
-    
-    // General/default responses
-    const generalResponses = [
-      "That's a thoughtful question! I'd love to help you explore that topic further. Learning is most effective when we're genuinely curious and engaged.",
-      "Interesting! Learning is all about curiosity, and you're asking great questions. The best discoveries often start with wondering 'what if' or 'why does this happen?'",
-      "I'm excited to help you learn! 🌟 Every question is a step toward deeper understanding. Knowledge builds on itself - each thing you learn makes the next thing easier.",
-      "Great question! The best learning happens when we're genuinely curious. Remember: there are no silly questions, only opportunities to grow your understanding!"
-    ];
-    
-    const generalQuestions = [
-      "How to become a better learner?",
-      "What study method works best?",
-      "How to stay motivated to learn?",
-      "Connect topics across subjects",
-      "Build critical thinking skills"
-    ];
-    
-    return {
-      response: generalResponses[Math.floor(Math.random() * generalResponses.length)],
-      followUpQuestions: generalQuestions.slice(0, 3)
+    // Add loading message
+    const loadingMessage: Message = {
+      id: 'loading-' + Date.now(),
+      text: '생각 중...',
+      isUser: false,
+      timestamp: new Date(),
+      isLoading: true
     };
-  };
+    setMessages(prev => [...prev, loadingMessage]);
 
-  const handleTopicClick = (topic: string) => {
-    setInputValue(topic);
+    const aiResponse = await callGeminiAPI(prompt);
+
+    // Remove loading message and add real response
+    setMessages(prev => prev.filter(msg => !msg.isLoading));
+    
+    const aiMessage: Message = {
+      id: Date.now().toString(),
+      text: aiResponse,
+      isUser: false,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, aiMessage]);
+    setIsTyping(false);
   };
 
   const TypingIndicator = () => (
@@ -281,54 +236,33 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
   );
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-[#ADC8FF]/10 to-white/95">
+    <div className="h-full flex flex-col bg-transparent">
       {/* Header */}
-      <div className="relative overflow-hidden">
-        {/* Ambient Background Layers */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#ADC8FF]/20 via-white/95 to-[#6B8FFF]/15" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/40 to-white/60" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-        
-        {/* Main Header Content */}
-        <div className="flex items-center justify-between p-5 backdrop-blur-xl border-b border-white/20">
-          {/* Back Button */}
+      <div className="relative overflow-hidden" style={{ background: 'transparent' }}>
+        <div className="flex items-center justify-between p-6 backdrop-blur-xl border-b border-white/20">
           <motion.button
-            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onBack}
-            className="w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg border border-white/40"
+            className="w-11 h-11 flex items-center justify-center rounded-xl"
+            style={{ backgroundColor: '#353F54' }}
           >
-            <ArrowLeft className="w-5 h-5 text-[#091A7A]" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </motion.button>
           
-          {/* Center - AI Info */}
-          <div className="flex items-center gap-3">
-            {/* AI Avatar */}
-            <div className="relative w-12 h-12 bg-gradient-to-br from-[#ADC8FF] to-[#6B8FFF] rounded-2xl flex items-center justify-center shadow-lg">
-              <Bot className="w-6 h-6 text-[#091A7A]" />
-              <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white" />
-            </div>
-            
-            {/* Title */}
-            <div className="text-center">
-              <h1 className="text-xl font-semibold text-[#091A7A]">AI Tutor</h1>
-              <p className="text-xs text-[#091A7A]/60">Online • Ready to help</p>
-            </div>
+          <div className="text-center">
+            <h1 className="text-lg" style={{ fontWeight: 700, color: '#091A7A' }}>
+              천개의 바람 AI튜터
+            </h1>
+            <p className="text-xs" style={{ color: '#6B7280' }}>온라인 • 도움 준비 완료</p>
           </div>
           
-          {/* Right Side - Sparkles Icon */}
-          <div className="w-11 h-11 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-[#ADC8FF]" />
-          </div>
+          <div className="w-11" />
         </div>
-        
-        {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ADC8FF]/30 to-transparent" />
       </div>
 
-      {/* Suggested Topics - Only show at start */}
+      {/* Feature Cards - Only show at start */}
       <AnimatePresence>
-        {messages.length === 1 && (
+        {messages.length === 1 && !showWordInput && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -336,29 +270,121 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
             className="p-6 space-y-4"
           >
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-[#091A7A]/70">Quick start topics:</p>
-              <p className="text-xs text-[#091A7A]/50">Tap any topic below or ask me anything!</p>
+              <p className="text-sm" style={{ fontWeight: 600, color: '#091A7A' }}>
+                어떤 도움이 필요하신가요?
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {suggestedTopics.map((topic, index) => (
+              {tutorFeatures.map((feature, index) => (
                 <motion.button
                   key={index}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleTopicClick(topic.text)}
-                  className="p-3 bg-card-glass backdrop-blur-sm rounded-2xl border border-white/20 shadow-card hover:shadow-interactive transition-all duration-300 flex flex-col items-center justify-center text-center group"
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleFeatureClick(feature)}
+                  className="p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-[#ADC8FF]/30 shadow-md active:shadow-lg transition-all duration-300 flex flex-col items-center justify-center text-center"
                 >
-                  <topic.icon className="w-5 h-5 mb-2 text-[#091A7A] group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-medium text-[#091A7A] mb-1">{topic.text}</p>
-                  <span className="text-xs text-[#091A7A]/50 bg-[#ADC8FF]/20 px-2 py-0.5 rounded-full">
-                    {topic.category}
+                  <feature.icon className="w-6 h-6 mb-2" style={{ color: '#091A7A' }} />
+                  <p className="text-xs mb-2" style={{ fontWeight: 600, color: '#091A7A' }}>
+                    {feature.text}
+                  </p>
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: 'rgba(9, 26, 122, 0.15)', color: '#091A7A' }}
+                  >
+                    {feature.category}
                   </span>
                 </motion.button>
               ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Word Input Modal */}
+      <AnimatePresence>
+        {showWordInput && selectedFeature && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+            onClick={() => {
+              setShowWordInput(false);
+              setSelectedFeature(null);
+              setInputValue('');
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-6 border border-[#ADC8FF]/30 shadow-2xl w-full max-w-sm"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <selectedFeature.icon className="w-6 h-6" style={{ color: '#091A7A' }} />
+                <div>
+                  <h3 className="text-sm" style={{ fontWeight: 700, color: '#091A7A' }}>
+                    {selectedFeature.category}
+                  </h3>
+                  <p className="text-xs" style={{ color: '#091A7A' }}>
+                    {selectedFeature.text}
+                  </p>
+                </div>
+              </div>
+              
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleWordSubmit()}
+                placeholder="단어를 입력하세요 (예: ambiguous)"
+                className="w-full p-3 mb-3 bg-white border-2 rounded-xl focus:outline-none focus:ring-2"
+                style={{ 
+                  borderColor: '#ADC8FF',
+                  color: '#091A7A'
+                }}
+                autoFocus
+              />
+              
+              <div className="flex gap-2 justify-end">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setShowWordInput(false);
+                    setSelectedFeature(null);
+                    setInputValue('');
+                  }}
+                  className="px-5 py-2 rounded-lg"
+                  style={{
+                    backgroundColor: '#F3F4F6',
+                    color: '#6B7280',
+                    fontWeight: 600,
+                    fontSize: '14px'
+                  }}
+                >
+                  취소
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleWordSubmit}
+                  disabled={!inputValue.trim()}
+                  className="px-5 py-2 rounded-lg text-white"
+                  style={{ 
+                    backgroundColor: inputValue.trim() ? '#091A7A' : '#D1D5DB',
+                    fontWeight: 600,
+                    fontSize: '14px'
+                  }}
+                >
+                  확인
+                </motion.button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -370,7 +396,7 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
             key={message.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: index * 0.05 }}
             className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
           >
             <div className={`max-w-[85%] ${message.isUser ? 'order-1' : 'order-2'}`}>
@@ -390,37 +416,16 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
                 <div className={`p-4 rounded-2xl shadow-sm ${
                   message.isUser
                     ? 'bg-[#091A7A] text-white rounded-tr-md'
-                    : 'bg-white/90 text-[#091A7A] rounded-tl-md border border-white/60'
-                }`}>
-                  <div className="text-sm leading-relaxed">{message.text}</div>
+                    : 'bg-white/90 rounded-tl-md border border-white/60'
+                }`}
+                  style={!message.isUser ? { color: '#091A7A' } : {}}
+                >
+                  <div className="leading-relaxed whitespace-pre-wrap text-[12px]">{message.text}</div>
                   <div className={`text-xs mt-2 ${
-                    message.isUser ? 'text-white/70' : 'text-[#091A7A]/50'
+                    message.isUser ? 'text-white/70' : 'opacity-50'
                   }`}>
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  
-                  {/* Suggested Questions */}
-                  {!message.isUser && message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <div className="text-xs text-[#091A7A]/60 mb-2">💡 You might also ask:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {message.suggestedQuestions.map((question, qIndex) => (
-                          <motion.button
-                            key={qIndex}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: qIndex * 0.1 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setInputValue(question)}
-                            className="px-3 py-2 bg-[#ADC8FF]/20 hover:bg-[#ADC8FF]/30 border border-[#ADC8FF]/40 rounded-full text-xs text-[#091A7A] transition-all duration-200 hover:shadow-sm"
-                          >
-                            {question}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -435,7 +440,7 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
       </div>
 
       {/* Input */}
-      <div className="p-6 bg-white/90 backdrop-blur-sm border-t border-white/30">
+      <div className="bg-white/90 backdrop-blur-sm border-t border-white/30 px-[20px] py-[16px]">
         <div className="flex items-end gap-3">
           <div className="flex-1 relative">
             <input
@@ -443,27 +448,30 @@ export function AITutorScreen({ onBack }: AITutorScreenProps) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-              placeholder="Ask me anything about your studies..."
-              className="w-full p-4 pr-12 bg-white/90 border-2 border-[#ADC8FF]/60 rounded-2xl text-[#091A7A] placeholder-[#091A7A]/75 focus:outline-none focus:ring-2 focus:ring-[#ADC8FF] focus:border-[#ADC8FF] focus:placeholder-[#091A7A]/60 transition-all duration-200 resize-none"
-              disabled={isTyping}
+              placeholder="자유롭게 질문하세요..."
+              className="w-full p-4 pr-12 bg-white border-2 rounded-2xl focus:outline-none focus:ring-2 transition-all duration-200"
+              style={{
+                borderColor: '#ADC8FF',
+                color: '#091A7A'
+              }}
+              disabled={isTyping || showWordInput}
             />
           </div>
           <motion.button
-            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isTyping}
+            disabled={!inputValue.trim() || isTyping || showWordInput}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-200 ${
-              inputValue.trim() && !isTyping
-                ? 'bg-gradient-to-br from-[#091A7A] to-[#1a2b8a] text-white hover:shadow-xl'
+              inputValue.trim() && !isTyping && !showWordInput
+                ? 'bg-gradient-to-br from-[#091A7A] to-[#4A5FC4] text-white'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
             <Send className="w-5 h-5" />
           </motion.button>
         </div>
-        <p className="text-xs text-[#091A7A]/40 mt-2 text-center">
-          AI can make mistakes. Verify important information.
+        <p className="text-xs mt-2 text-center" style={{ color: '#091A7A', opacity: 0.6 }}>
+          AI가 실수할 수 있습니다. 중요한 정보는 확인하세요.
         </p>
       </div>
     </div>

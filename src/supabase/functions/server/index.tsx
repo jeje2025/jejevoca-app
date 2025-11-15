@@ -2,7 +2,6 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import * as kv from './kv_store.tsx';
 
 const app = new Hono();
 
@@ -56,16 +55,18 @@ app.post('/make-server-c9fd9b61/auth/signup', async (c) => {
       return c.json({ error: error.message }, 400);
     }
 
-    // Create student record in students table
+    // Create profile record linked to auth user
     const { error: dbError } = await supabase
-      .from('students')
+      .from('profiles')
       .insert({
         id: data.user.id,  // ✅ id가 바로 auth.users.id
         name,
         student_code: studentCode,
-        points: 0,
-        total_xp: 0,
-        streak_days: 0
+        points: 1000,
+        total_xp: 1000,
+        streak_days: 0,
+        wins: 0,
+        losses: 0
       });
 
     if (dbError) {
@@ -187,7 +188,7 @@ app.post('/make-server-c9fd9b61/auth/signin', async (c) => {
     
     if (role === 'student') {
       const { data: profileData, error: profileError } = await supabaseService
-        .from('students')
+        .from('profiles')
         .select('*')
         .eq('id', data.user.id)  // ✅ id로 조회 (auth.users.id와 같음)
         .single();
@@ -271,7 +272,7 @@ app.post('/make-server-c9fd9b61/auth/refresh', async (c) => {
     
     if (role === 'student') {
       const { data: profileData, error: profileError } = await supabaseService
-        .from('students')
+        .from('profiles')
         .select('*')
         .eq('id', data.user.id)  // ✅ id로 조회 (auth.users.id와 같음)
         .single();
@@ -429,9 +430,9 @@ app.get('/make-server-c9fd9b61/students', async (c) => {
       return c.json({ error: 'Admin access required' }, 403);
     }
 
-    // Fetch all students from students table
+    // Fetch all students from profiles table
     const { data: students, error } = await supabase
-      .from('students')
+      .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -530,16 +531,18 @@ app.post('/make-server-c9fd9b61/students', async (c) => {
 
     console.log('✅ Auth user created:', authData.user.id);
 
-    // Create profile in students table
+    // Create profile linked to auth user
     const { data: profile, error: profileError } = await supabase
-      .from('students')
+      .from('profiles')
       .insert({
         id: authData.user.id,  // ✅ id가 바로 auth.users.id
         name,
         student_code: studentCode,
-        points: 0,
-        total_xp: 0,
-        streak_days: 0
+        points: 1000,
+        total_xp: 1000,
+        streak_days: 0,
+        wins: 0,
+        losses: 0
       })
       .select()
       .single();
@@ -581,7 +584,7 @@ app.put('/make-server-c9fd9b61/students/:id', async (c) => {
 
     // Update profile
     const { error: updateError } = await supabase
-      .from('students')
+      .from('profiles')
       .update(updates)
       .eq('id', studentId);
 
@@ -637,16 +640,16 @@ app.delete('/make-server-c9fd9b61/students/:id', async (c) => {
 // LEADERBOARD ROUTES
 // ======================
 
-// Get leaderboard
+// Get leaderboard (points 기준)
 app.get('/make-server-c9fd9b61/leaderboard', async (c) => {
   try {
     const supabase = getSupabaseClient();
     
-    // Fetch all students from students table
-    const { data: students, error } = await supabase
-      .from('students')
-      .select('id, name, total_xp, student_code')
-      .order('total_xp', { ascending: false })
+    // Fetch all users from profiles table, ordered by points
+    const { data: users, error } = await supabase
+      .from('profiles')
+      .select('id, name, points, wins, losses')
+      .order('points', { ascending: false })
       .limit(50);
 
     if (error) {
@@ -654,7 +657,17 @@ app.get('/make-server-c9fd9b61/leaderboard', async (c) => {
       return c.json({ error: `Error fetching leaderboard: ${error.message}` }, 400);
     }
 
-    return c.json({ success: true, leaderboard: students });
+    // Transform to match LeaderboardEntry interface
+    const leaderboard = users.map(user => ({
+      id: user.id,
+      name: user.name,
+      total_xp: user.points || 0, // Keep total_xp for backward compatibility
+      points: user.points || 0,
+      wins: user.wins || 0,
+      losses: user.losses || 0
+    }));
+
+    return c.json({ success: true, leaderboard });
   } catch (error) {
     console.log('Server error fetching leaderboard:', error);
     return c.json({ error: `Server error: ${error.message}` }, 500);
@@ -680,7 +693,7 @@ app.post('/make-server-c9fd9b61/progress/update', async (c) => {
 
     // Update student record - use id for matching (id = auth.users.id)
     const { error: updateError } = await supabase
-      .from('students')
+      .from('profiles')
       .update({
         points,
         total_xp: totalXP,
@@ -751,8 +764,43 @@ app.post('/make-server-c9fd9b61/words/bulk-upload', async (c) => {
       console.log('✅ All existing words deleted');
     }
 
-    // Transform words to database format
-    const dbWords = words.map((word, index) => {
+    // Helper function to get pronunciation from Dictionary API
+    const getPronunciation = async (wordText: string): Promise<string> => {
+      if (!wordText || wordText.trim() === '') return '';
+      
+      try {
+        // Clean word (remove spaces, take first word for phrases)
+        const cleanWord = wordText.trim().split(/\s+/)[0].toLowerCase();
+        
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
+        
+        if (!response.ok) {
+          console.log(`⚠️ No pronunciation found for: ${cleanWord}`);
+          return '';
+        }
+        
+        const data = await response.json();
+        
+        if (Array.isArray(data) && data.length > 0) {
+          const phonetic = data[0].phonetic || 
+                           (data[0].phonetics && data[0].phonetics.find((p: any) => p.text)?.text) ||
+                           '';
+          
+          if (phonetic) {
+            console.log(`✅ Pronunciation for ${cleanWord}: ${phonetic}`);
+            return phonetic;
+          }
+        }
+        
+        return '';
+      } catch (error) {
+        console.error(`❌ Error fetching pronunciation for ${wordText}:`, error);
+        return '';
+      }
+    };
+
+    // Transform words to database format with auto-generated pronunciation
+    const dbWords = await Promise.all(words.map(async (word, index) => {
       // Additional validation before database insertion
       const vol = typeof word.vol === 'number' ? word.vol : parseInt(String(word.vol || 0));
       const day = typeof word.day === 'number' ? word.day : parseInt(String(word.day || 0));
@@ -776,13 +824,21 @@ app.post('/make-server-c9fd9b61/words/bulk-upload', async (c) => {
         throw new Error(`Missing word value at word ${index + 1}`);
       }
 
+      // Auto-generate pronunciation if not provided
+      let pronunciation = word.pronunciation || '';
+      if (!pronunciation || pronunciation.trim() === '') {
+        pronunciation = await getPronunciation(word.word);
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       return {
         vol,
         day,
         number,
         word: word.word,
         korean_meaning: word.koreanMeaning,
-        pronunciation: word.pronunciation || '',
+        pronunciation: pronunciation,
         korean_pronunciation: word.koreanPronunciation || '',
         derivatives: word.derivatives || [],
         example: word.example || '',
@@ -792,7 +848,7 @@ app.post('/make-server-c9fd9b61/words/bulk-upload', async (c) => {
         synonyms: word.synonyms || [],
         antonyms: word.antonyms || []
       };
-    });
+    }));
 
     // INSERT: Insert words in batches of 500
     const batchSize = 500;
@@ -824,6 +880,251 @@ app.post('/make-server-c9fd9b61/words/bulk-upload', async (c) => {
     });
   } catch (error) {
     console.error('Server error uploading words:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// Update user points
+app.post('/make-server-c9fd9b61/auth/update-points', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { points } = await c.req.json();
+    
+    if (typeof points !== 'number' || points < 0) {
+      return c.json({ error: 'Invalid points value' }, 400);
+    }
+
+    // Update user profile points (check if student or admin)
+    const role = user.user_metadata?.role || 'student';
+    const tableName = role === 'student' ? 'students' : 'profiles';
+    
+    const { error: updateError } = await supabase
+      .from(tableName)
+      .update({ points })
+      .eq('id', user.id);
+
+    if (updateError) {
+      console.error('Error updating points:', updateError);
+      return c.json({ error: `Error updating points: ${updateError.message}` }, 400);
+    }
+
+    return c.json({ success: true, points });
+  } catch (error) {
+    console.error('Server error updating points:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// User Deck Management
+// Get user deck
+app.get('/make-server-c9fd9b61/deck', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Get user deck from user_decks table
+    // Fetch deck items first, then fetch words separately to avoid relationship issues
+    const { data: deckItems, error: deckError } = await supabase
+      .from('user_decks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (deckError) {
+      console.error('Error fetching deck:', deckError);
+      return c.json({ error: `Error fetching deck: ${deckError.message}` }, 400);
+    }
+
+    if (!deckItems || deckItems.length === 0) {
+      return c.json({ success: true, deck: [] });
+    }
+
+    // Fetch words separately
+    const wordIds = deckItems.map(item => item.word_id);
+    const { data: wordsData, error: wordsError } = await supabase
+      .from('words')
+      .select('*')
+      .in('id', wordIds);
+
+    if (wordsError) {
+      console.error('Error fetching words:', wordsError);
+      return c.json({ error: `Error fetching words: ${wordsError.message}` }, 400);
+    }
+
+    // Create a map for quick lookup
+    const wordsMap = new Map((wordsData || []).map(w => [w.id, w]));
+
+    // Transform to frontend format
+    const formattedDeck = deckItems.map(item => ({
+      id: item.id,
+      wordId: item.word_id,
+      word: wordsMap.get(item.word_id) ? {
+        id: wordsMap.get(item.word_id).id,
+        word: wordsMap.get(item.word_id).word,
+        koreanMeaning: wordsMap.get(item.word_id).korean_meaning,
+        pronunciation: wordsMap.get(item.word_id).pronunciation,
+        synonyms: wordsMap.get(item.word_id).synonyms || [],
+        antonyms: wordsMap.get(item.word_id).antonyms || []
+      } : null,
+      addedAt: item.created_at
+    }));
+
+    return c.json({ success: true, deck: formattedDeck });
+  } catch (error) {
+    console.error('Server error fetching deck:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// Add word to deck
+app.post('/make-server-c9fd9b61/deck/add', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { wordId } = await c.req.json();
+    
+    if (!wordId) {
+      return c.json({ error: 'wordId is required' }, 400);
+    }
+
+    // Check if word already in deck
+    const { data: existing } = await supabase
+      .from('user_decks')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('word_id', wordId)
+      .single();
+
+    if (existing) {
+      return c.json({ success: true, message: 'Word already in deck', alreadyExists: true });
+    }
+
+    // Add word to deck
+    const { data, error } = await supabase
+      .from('user_decks')
+      .insert({
+        user_id: user.id,
+        word_id: wordId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding word to deck:', error);
+      return c.json({ error: `Error adding word to deck: ${error.message}` }, 400);
+    }
+
+    return c.json({ success: true, deckItem: data });
+  } catch (error) {
+    console.error('Server error adding word to deck:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// Remove word from deck
+app.delete('/make-server-c9fd9b61/deck/:wordId', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const wordId = c.req.param('wordId');
+
+    const { error } = await supabase
+      .from('user_decks')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('word_id', wordId);
+
+    if (error) {
+      console.error('Error removing word from deck:', error);
+      return c.json({ error: `Error removing word from deck: ${error.message}` }, 400);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Server error removing word from deck:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// Add multiple words to deck (from quiz results)
+app.post('/make-server-c9fd9b61/deck/add-multiple', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const { wordIds } = await c.req.json();
+    
+    if (!wordIds || !Array.isArray(wordIds) || wordIds.length === 0) {
+      return c.json({ error: 'wordIds array is required' }, 400);
+    }
+
+    // Get existing deck items
+    const { data: existing } = await supabase
+      .from('user_decks')
+      .select('word_id')
+      .eq('user_id', user.id)
+      .in('word_id', wordIds);
+
+    const existingWordIds = new Set(existing?.map(item => item.word_id) || []);
+    const newWordIds = wordIds.filter(id => !existingWordIds.has(id));
+
+    if (newWordIds.length === 0) {
+      return c.json({ success: true, message: 'All words already in deck', added: 0, skipped: wordIds.length });
+    }
+
+    // Add new words to deck
+    const deckItems = newWordIds.map(wordId => ({
+      user_id: user.id,
+      word_id: wordId
+    }));
+
+    const { data, error } = await supabase
+      .from('user_decks')
+      .insert(deckItems)
+      .select();
+
+    if (error) {
+      console.error('Error adding words to deck:', error);
+      return c.json({ error: `Error adding words to deck: ${error.message}` }, 400);
+    }
+
+    return c.json({ 
+      success: true, 
+      added: newWordIds.length,
+      skipped: existingWordIds.size,
+      deckItems: data 
+    });
+  } catch (error) {
+    console.error('Server error adding words to deck:', error);
     return c.json({ error: `Server error: ${error.message}` }, 500);
   }
 });
@@ -874,6 +1175,145 @@ app.get('/make-server-c9fd9b61/words/:vol/:day', async (c) => {
     return c.json({ success: true, words: formattedWords });
   } catch (error) {
     console.error('Server error fetching words:', error);
+    return c.json({ error: `Server error: ${error.message}` }, 500);
+  }
+});
+
+// Auto-generate pronunciation for words (admin only)
+app.post('/make-server-c9fd9b61/words/generate-pronunciation', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const supabase = getSupabaseClient();
+    
+    // Check if user is admin via user_metadata
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const role = user.user_metadata?.role;
+    if (role !== 'admin') {
+      return c.json({ error: 'Admin access required' }, 403);
+    }
+
+    const { wordIds, allWords } = await c.req.json();
+    
+    // Helper function to get pronunciation from Dictionary API
+    const getPronunciation = async (wordText: string): Promise<string> => {
+      if (!wordText || wordText.trim() === '') return '';
+      
+      try {
+        const cleanWord = wordText.trim().split(/\s+/)[0].toLowerCase();
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
+        
+        if (!response.ok) {
+          return '';
+        }
+        
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const phonetic = data[0].phonetic || 
+                           (data[0].phonetics && data[0].phonetics.find((p: any) => p.text)?.text) ||
+                           '';
+          return phonetic || '';
+        }
+        
+        return '';
+      } catch (error) {
+        console.error(`Error fetching pronunciation for ${wordText}:`, error);
+        return '';
+      }
+    };
+
+    let updatedCount = 0;
+    let failedCount = 0;
+
+    if (allWords) {
+      // Update all words without pronunciation
+      const { data: words, error: fetchError } = await supabase
+        .from('words')
+        .select('id, word, pronunciation')
+        .or('pronunciation.is.null,pronunciation.eq.');
+      
+      if (fetchError) {
+        return c.json({ error: `Error fetching words: ${fetchError.message}` }, 400);
+      }
+
+      if (!words || words.length === 0) {
+        return c.json({ success: true, message: 'No words need pronunciation', updated: 0 });
+      }
+
+      console.log(`📝 Generating pronunciation for ${words.length} words...`);
+
+      for (const word of words) {
+        if (word.pronunciation && word.pronunciation.trim() !== '') {
+          continue; // Skip if already has pronunciation
+        }
+
+        const pronunciation = await getPronunciation(word.word);
+        
+        if (pronunciation) {
+          const { error: updateError } = await supabase
+            .from('words')
+            .update({ pronunciation })
+            .eq('id', word.id);
+          
+          if (updateError) {
+            console.error(`Error updating word ${word.word}:`, updateError);
+            failedCount++;
+          } else {
+            updatedCount++;
+          }
+        } else {
+          failedCount++;
+        }
+
+        // Rate limiting: wait 100ms between requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } else if (wordIds && Array.isArray(wordIds)) {
+      // Update specific words
+      const { data: words, error: fetchError } = await supabase
+        .from('words')
+        .select('id, word, pronunciation')
+        .in('id', wordIds);
+      
+      if (fetchError) {
+        return c.json({ error: `Error fetching words: ${fetchError.message}` }, 400);
+      }
+
+      for (const word of words || []) {
+        const pronunciation = await getPronunciation(word.word);
+        
+        if (pronunciation) {
+          const { error: updateError } = await supabase
+            .from('words')
+            .update({ pronunciation })
+            .eq('id', word.id);
+          
+          if (updateError) {
+            failedCount++;
+          } else {
+            updatedCount++;
+          }
+        } else {
+          failedCount++;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } else {
+      return c.json({ error: 'Invalid request: provide wordIds array or set allWords to true' }, 400);
+    }
+
+    return c.json({ 
+      success: true, 
+      message: `Pronunciation generation complete`,
+      updated: updatedCount,
+      failed: failedCount
+    });
+  } catch (error) {
+    console.error('Server error generating pronunciation:', error);
     return c.json({ error: `Server error: ${error.message}` }, 500);
   }
 });

@@ -108,6 +108,33 @@ export function LoginScreen({ onLoginSuccess, onCreateAdmin }: LoginScreenProps)
             await supabase.auth.signOut();
           } else {
             console.log('✅ Profile found:', profile);
+            
+            // Save session to authService for persistence
+            const session = {
+              accessToken: data.session.access_token,
+              refreshToken: data.session.refresh_token,
+              expiresAt: (data.session.expires_at || Date.now() + 86400000) * 1000, // Convert to milliseconds
+              user: {
+                id: profile.id,
+                email: profile.email || data.user.email || '',
+                name: profile.name,
+                studentCode: profile.student_code || formData.studentCode,
+                role: 'student' as const,
+                points: profile.points || 0,
+                totalXP: profile.total_xp || 0,
+                currentVolume: profile.current_volume || 1,
+                currentDay: profile.current_day || 1,
+                streakDays: profile.streak_days || 0,
+                avatarUrl: profile.avatar_url
+              }
+            };
+            
+            // Save to localStorage and update authService
+            localStorage.setItem('godslife_session', JSON.stringify(session));
+            // Force authService to reload session
+            (authService as any).restoreSession();
+            console.log('✅ Session saved to localStorage and authService updated');
+            
             onLoginSuccess(false, profile.name);
           }
         } else {

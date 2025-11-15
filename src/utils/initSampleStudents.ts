@@ -2,6 +2,7 @@
 // This should be run once by an admin to populate the database
 
 export const sampleStudents = [
+  { name: '김소이', email: 'student001@student.godslifevoca.com', studentCode: 'student001', password: 'student001' },
   { name: '김서연', email: 'kim.seoyeon@example.com', studentCode: 'ST001', password: 'godslife1' },
   { name: '이준호', email: 'lee.junho@example.com', studentCode: 'ST002', password: 'godslife2' },
   { name: '박지우', email: 'park.jiwoo@example.com', studentCode: 'ST003', password: 'godslife3' },

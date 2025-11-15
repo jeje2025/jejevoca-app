@@ -66,7 +66,7 @@ export function QuizCompletionScreen({
     },
     {
       icon: <TrendingUp className="w-6 h-6" />,
-      label: "XP Gained",
+      label: "Point Gained",
       value: `+${xpGained}`,
       color: "purple"
     }
@@ -263,7 +263,7 @@ export function QuizCompletionScreen({
                 <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center mb-2 mx-auto">
                   <Star className="w-6 h-6 text-yellow-600" />
                 </div>
-                <p className="text-sm text-gray-600 mb-1">XP Gained</p>
+                <p className="text-sm text-gray-600 mb-1">Point Gained</p>
                 <p className="font-bold text-[#091A7A]">+{xpGained}</p>
               </div>
 

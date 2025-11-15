@@ -214,9 +214,54 @@ export function WordDataTab({ accessToken }: WordDataTabProps) {
     }
   };
 
+  const handleGeneratePronunciation = async () => {
+    if (!confirm('발음기호가 없는 모든 단어에 대해 자동으로 발음기호를 생성하시겠습니까?\n\n이 작업은 시간이 걸릴 수 있습니다.')) {
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const token = accessToken || authService.getAccessToken();
+      
+      if (!token) {
+        alert('로그인이 필요합니다. 관리자로 다시 로그인해주세요.');
+        return;
+      }
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-c9fd9b61/words/generate-pronunciation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ allWords: true }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        alert(`발음기호 생성 실패: ${data.error || '알 수 없는 오류'}`);
+        return;
+      }
+
+      alert(`✅ 발음기호 생성 완료!\n\n생성된 단어: ${data.updated}개\n실패한 단어: ${data.failed}개`);
+      
+      // Refresh data from server
+      await fetchAllWords();
+    } catch (error) {
+      console.error('Pronunciation generation error:', error);
+      alert('발음기호 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDownloadFromDB = async () => {
     try {
-      const token = accessToken || (window as any).authService?.getAccessToken() || localStorage.getItem('access_token');
+      const token = accessToken || authService.getAccessToken();
       
       if (!token) {
         alert('로그인이 필요합니다. 관리자로 다시 로그인해주세요.');
@@ -380,6 +425,29 @@ export function WordDataTab({ accessToken }: WordDataTabProps) {
           >
             <Download className="w-4 h-4" />
             현재 필터 내보내기
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleGeneratePronunciation}
+            disabled={uploading}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg flex items-center gap-2 hover:bg-orange-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploading ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                />
+                생성 중...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                발음기호 자동 생성
+              </>
+            )}
           </motion.button>
 
           <div className="flex-1" />

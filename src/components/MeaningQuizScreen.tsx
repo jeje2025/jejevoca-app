@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Timer, Heart, Sparkles, CheckCircle, X, Loader2 } from 'lucide-react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { motion } from 'motion/react';
+import { ArrowLeft, Timer, Heart, CheckCircle, X, Loader2 } from 'lucide-react';
+import { projectId } from '../utils/supabase/info';
 import { authService } from '../utils/auth';
 
 interface MeaningQuizScreenProps {
@@ -12,6 +12,7 @@ interface MeaningQuizScreenProps {
 }
 
 interface QuizQuestion {
+  id?: string;
   word: string;
   correctAnswer: string;
   options: string[];
@@ -23,72 +24,89 @@ interface WordData {
   koreanMeaning: string;
 }
 
-// 오답 보기 생성을 위한 랜덤 한국어 뜻 목록
-const DISTRACTOR_MEANINGS = [
-  '얻다, 획득하다',
-  '도착하다',
-  '믿다, 신뢰하다',
-  '시작하다',
-  '부족함',
-  '어려움',
-  '실수',
-  '운',
-  '출석한',
-  '행복한',
-  '슬픈',
-  '화난',
-  '크다',
-  '작다',
-  '빠르다',
-  '느리다',
-  '쉽다',
-  '어렵다',
-  '좋다',
-  '나쁘다',
-  '밝다',
-  '어둡다',
-  '새로운',
-  '오래된',
-  '강하다',
-  '약하다',
-  '높다',
-  '낮다',
-  '많다',
-  '적다',
-  '긴',
-  '짧은',
-  '넓다',
-  '좁다',
-  '무겁다',
-  '가볍다',
-];
-
-function generateOptions(correctAnswer: string, allMeanings: string[]): string[] {
-  // 정답을 제외한 다른 단어들의 뜻
-  const otherMeanings = allMeanings.filter(m => m !== correctAnswer);
-  
-  // 4개의 오답 선택
-  const distractors: string[] = [];
-  const availableOptions = [...otherMeanings, ...DISTRACTOR_MEANINGS];
-  
-  while (distractors.length < 4 && availableOptions.length > 0) {
-    const randomIndex = Math.floor(Math.random() * availableOptions.length);
-    const option = availableOptions[randomIndex];
-    
-    if (!distractors.includes(option) && option !== correctAnswer) {
-      distractors.push(option);
-    }
-    
-    availableOptions.splice(randomIndex, 1);
+// 품사 추출 함수
+function extractPartOfSpeech(meaning: string): string {
+  // 동사: ~하다, ~되다 등으로 끝남
+  if (/하다|되다|시키다$/i.test(meaning.split(/[,;]/)[0])) {
+    return 'verb';
   }
-  
-  // 정답과 오답을 합쳐서 섞기
-  const options = [correctAnswer, ...distractors];
+
+  // 형용사: ~한, ~로운, ~스러운 등으로 끝남
+  if (/한|로운|스러운|적인$/i.test(meaning.split(/[,;]/)[0])) {
+    return 'adjective';
+  }
+
+  // 부사: ~게, ~히, ~이 등으로 끝남
+  if (/게|히$/i.test(meaning.split(/[,;]/)[0])) {
+    return 'adverb';
+  }
+
+  // 기본값: 명사
+  return 'noun';
+}
+
+// 품사별 기본 오답
+const FALLBACK_BY_POS: Record<string, string[]> = {
+  verb: ['얻다', '도착하다', '시작하다', '끝내다'],
+  adjective: ['행복한', '슬픈', '좋은', '나쁜'],
+  noun: ['부족함', '어려움', '실수', '운'],
+  adverb: ['빠르게', '느리게', '쉽게', '어렵게'],
+};
+
+function generateOptions(correctAnswer: string, allWords: WordData[]): string[] {
+  // 정답의 품사 파악
+  const correctPos = extractPartOfSpeech(correctAnswer);
+
+  // 같은 품사의 다른 단어들 찾기
+  const samePosWords = allWords
+    .filter(w => w.koreanMeaning !== correctAnswer)
+    .filter(w => extractPartOfSpeech(w.koreanMeaning) === correctPos);
+
+  // 오답 보기 생성
+  const distractors: string[] = [];
+  const shuffled = [...samePosWords].sort(() => Math.random() - 0.5);
+
+  // 같은 품사에서 4개 선택
+  for (const word of shuffled) {
+    if (distractors.length >= 4) break;
+    if (!distractors.includes(word.koreanMeaning)) {
+      distractors.push(word.koreanMeaning);
+    }
+  }
+
+  // 부족하면 다른 단어들로 채우기
+  if (distractors.length < 4) {
+    const otherWords = allWords
+      .filter(w => w.koreanMeaning !== correctAnswer)
+      .filter(w => !distractors.includes(w.koreanMeaning))
+      .sort(() => Math.random() - 0.5);
+
+    for (const word of otherWords) {
+      if (distractors.length >= 4) break;
+      distractors.push(word.koreanMeaning);
+    }
+  }
+
+  // 여전히 부족하면 기본 오답 사용
+  if (distractors.length < 4) {
+    const fallbacks = FALLBACK_BY_POS[correctPos] || [];
+    for (const fb of fallbacks) {
+      if (distractors.length >= 4) break;
+      if (!distractors.includes(fb) && fb !== correctAnswer) {
+        distractors.push(fb);
+      }
+    }
+  }
+
+  // 정답과 오답 섞기
+  const options = [correctAnswer, ...distractors.slice(0, 4)];
   return options.sort(() => Math.random() - 0.5);
 }
 
 export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQuizScreenProps) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [words, setWords] = useState<WordData[]>([]);
+  const [correctWordIds, setCorrectWordIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -99,7 +117,6 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
   const [showFeedback, setShowFeedback] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Load words from server and generate quiz questions
   useEffect(() => {
     fetchWordsAndGenerateQuiz();
   }, [volume, day]);
@@ -108,76 +125,57 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
     try {
       setLoading(true);
       setError(null);
-      
-      const token = localStorage.getItem('access_token');
-      
-      console.log(`🔍 [Quiz] Fetching words for VOL.${volume} Day ${day}...`);
-      console.log(`🔍 [Quiz] ProjectId:`, projectId);
-      console.log(`🔍 [Quiz] Token:`, token ? 'Present' : 'Missing');
-      
+
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-c9fd9b61/words/${volume}/${day}`;
-      console.log(`🔍 [Quiz] URL:`, url);
-      
-      const response = await fetch(url, {
-        headers: token ? {
-          'Authorization': `Bearer ${token}`,
-        } : {},
-      });
 
-      console.log(`📡 [Quiz] Response status: ${response.status}`);
-      console.log(`📡 [Quiz] Response ok: ${response.ok}`);
+      console.log(`🔍 [MeaningQuiz] Fetching words for VOL.${volume} Day ${day}...`);
+      console.log(`🔍 [MeaningQuiz] URL:`, url);
 
-      const contentType = response.headers.get('content-type');
-      console.log(`📡 [Quiz] Content-Type:`, contentType);
-
-      let data;
-      try {
-        data = await response.json();
-        console.log(`📦 [Quiz] Response data:`, data);
-      } catch (jsonError) {
-        console.error('❌ [Quiz] Failed to parse JSON:', jsonError);
-        const text = await response.text();
-        console.log(`📦 [Quiz] Response text:`, text);
-        throw new Error(`Invalid response format: ${text.substring(0, 100)}`);
+      const token = authService.getAccessToken();
+      if (!token) {
+        throw new Error('로그인이 필요합니다.');
       }
 
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log(`📡 [MeaningQuiz] Response status:`, response.status);
+      console.log(`📡 [MeaningQuiz] Response ok:`, response.ok);
+
+      const data = await response.json();
+      console.log(`📦 [MeaningQuiz] Response data:`, data);
+
       if (!response.ok) {
-        console.error(`❌ [Quiz] Server error:`, data.error);
         throw new Error(data.error || `Server error: ${response.status}`);
       }
 
-      console.log(`📦 [Quiz] Data structure:`, {
-        hasWords: !!data.words,
-        wordsLength: data.words?.length,
-        firstWord: data.words?.[0]
-      });
-
       if (data.words && data.words.length > 0) {
-        const words: WordData[] = data.words;
-        
-        // 모든 단어의 뜻 목록 (오답 생성용)
-        const allMeanings = words.map(w => w.koreanMeaning);
-        
-        // 퀴즈 문제 생성 (30개 또는 단어 개수만큼)
-        const quizQuestions: QuizQuestion[] = words.map(word => ({
+        const wordsData: WordData[] = data.words;
+        setWords(wordsData);
+
+        const quizQuestions: QuizQuestion[] = wordsData.map((word) => ({
+          id: word.id,
           word: word.word,
           correctAnswer: word.koreanMeaning,
-          options: generateOptions(word.koreanMeaning, allMeanings)
+          options: generateOptions(word.koreanMeaning, wordsData)
         }));
-        
+
         setQuestions(quizQuestions);
-        console.log(`✅ [Quiz] Generated ${quizQuestions.length} quiz questions for VOL.${volume} Day ${day}`);
+
+        // 디버깅: 품사 분포 확인
+        const posCount: Record<string, number> = {};
+        wordsData.forEach(w => {
+          const pos = extractPartOfSpeech(w.koreanMeaning);
+          posCount[pos] = (posCount[pos] || 0) + 1;
+        });
+        console.log('📊 품사 분포:', posCount);
       } else {
-        console.log(`⚠️ [Quiz] No words in response`);
         throw new Error('No words found for this volume and day');
       }
     } catch (err) {
-      console.error('❌ [Quiz] Error fetching words:', err);
-      console.error('❌ [Quiz] Error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        stack: err instanceof Error ? err.stack : undefined,
-        name: err instanceof Error ? err.name : undefined
-      });
       setError(err instanceof Error ? err.message : 'Failed to load quiz');
     } finally {
       setLoading(false);
@@ -190,7 +188,7 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
   // Timer countdown
   useEffect(() => {
     if (showFeedback) return;
-    
+
     if (timeLeft <= 0) {
       handleWrongAnswer();
       return;
@@ -205,30 +203,74 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
 
   const handleWrongAnswer = () => {
     setShowFeedback(true);
-    setLives(prev => Math.max(0, prev - 1));
-    
+    const newLives = Math.max(0, lives - 1);
+    setLives(newLives);
+
     setTimeout(() => {
-      if (lives <= 1) {
+      if (score >= 27) {
+        onComplete(score);
+      } else if (newLives <= 0) {
+        onComplete(score);
+      } else if (currentQuestion + 1 >= totalQuestions) {
         onComplete(score);
       } else {
         nextQuestion();
       }
-    }, 2000);
+    }, 1500);
   };
 
   const handleCorrectAnswer = () => {
     setShowFeedback(true);
-    setScore(prev => prev + 1);
+    const newScore = score + 1;
+    setScore(newScore);
     setShowConfetti(true);
-    
+
+    const currentWord = words.find(w => w.word === currentQuiz.word);
+    if (currentWord) {
+      setCorrectWordIds(prev => new Set([...prev, currentWord.id]));
+    }
+
     setTimeout(() => {
       setShowConfetti(false);
-      if (currentQuestion >= totalQuestions - 1) {
-        onComplete(score + 1);
+      if (newScore >= 27) {
+        addWordsToDeck(Array.from(correctWordIds).concat(currentWord?.id || []));
+        onComplete(newScore);
+      } else if (currentQuestion + 1 >= totalQuestions) {
+        addWordsToDeck(Array.from(correctWordIds).concat(currentWord?.id || []));
+        onComplete(newScore);
       } else {
         nextQuestion();
       }
-    }, 2000);
+    }, 1500);
+  };
+
+  const addWordsToDeck = async (wordIds: string[]) => {
+    if (wordIds.length === 0) return;
+
+    try {
+      const token = authService.getAccessToken();
+      if (!token) return;
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-c9fd9b61/deck/add-multiple`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ wordIds }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.added > 0) {
+        console.log(`✅ ${data.added}개의 단어가 덱에 추가되었습니다.`);
+      }
+    } catch (error) {
+      console.error('덱 추가 오류:', error);
+    }
   };
 
   const nextQuestion = () => {
@@ -240,9 +282,9 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
 
   const handleAnswerSelect = (answer: string) => {
     if (showFeedback) return;
-    
+
     setSelectedAnswer(answer);
-    
+
     if (answer === currentQuiz.correctAnswer) {
       handleCorrectAnswer();
     } else {
@@ -256,20 +298,20 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
       {[...Array(30)].map((_, i) => (
         <motion.div
           key={i}
-          initial={{ 
-            opacity: 1, 
-            y: -20, 
+          initial={{
+            opacity: 1,
+            y: -20,
             x: Math.random() * window.innerWidth,
             rotate: 0,
             scale: Math.random() * 0.5 + 0.5
           }}
-          animate={{ 
-            opacity: 0, 
+          animate={{
+            opacity: 0,
             y: window.innerHeight + 100,
             rotate: Math.random() * 720 + 360,
             x: Math.random() * window.innerWidth
           }}
-          transition={{ 
+          transition={{
             duration: Math.random() * 2 + 2,
             delay: Math.random() * 0.5,
             ease: "easeOut"
@@ -282,215 +324,156 @@ export function MeaningQuizScreen({ volume, day, onBack, onComplete }: MeaningQu
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 size={48} className="text-indigo-500 animate-spin mx-auto" />
+          <p className="text-gray-600">퀴즈를 준비하는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center px-6">
+        <div className="text-center space-y-4">
+          <div className="text-4xl">😵</div>
+          <p className="text-gray-700">{error || '단어를 불러올 수 없습니다.'}</p>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 shadow-lg"
+          >
+            돌아가기
+          </motion.button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#ADC8FF]/30 via-[#F8FBFF]/50 to-white relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6 relative">
       {showConfetti && <Confetti />}
-      
-      {/* Loading State */}
-      {loading && (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <Loader2 size={48} className="text-[#091A7A] animate-spin mx-auto" />
-            <p className="text-[#091A7A] font-medium">퀴즈를 준비하는 중...</p>
+
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft size={20} />
+            <span className="font-medium">돌아가기</span>
+          </button>
+          <div className="text-sm font-semibold text-indigo-600 bg-white px-4 py-2 rounded-full shadow-sm">
+            VOL.{volume} Day {day}
           </div>
         </div>
-      )}
 
-      {/* Error State */}
-      {error && !loading && (
-        <div className="min-h-screen flex items-center justify-center px-6">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-2xl">⚠️</span>
+        {/* Stats Bar */}
+        <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2">
+              <Timer size={20} className={timeLeft <= 3 ? 'text-red-500' : 'text-gray-600'} />
+              <span className={`font-bold ${timeLeft <= 3 ? 'text-red-500' : 'text-gray-900'}`}>
+                {timeLeft}초
+              </span>
             </div>
-            <p className="text-gray-600">{error}</p>
-            <div className="flex gap-3">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={fetchWordsAndGenerateQuiz}
-                className="px-6 py-3 bg-[#091A7A] text-white rounded-[16px] animate-touch min-h-[44px]"
-              >
-                다시 시도
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onBack}
-                className="px-6 py-3 bg-white/80 backdrop-blur-lg border border-white/40 text-[#091A7A] rounded-[16px] animate-touch min-h-[44px]"
-              >
-                뒤로 가기
-              </motion.button>
+
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  animate={i >= lives ? { scale: [1, 0.5, 0.5] } : {}}
+                  transition={{ duration: 0.3 }}
+                >
+                  {i < lives ? (
+                    <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                  ) : (
+                    <Heart className="w-5 h-5 text-gray-300" />
+                  )}
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="text-sm font-medium text-gray-600">
+              {currentQuestion + 1} / {totalQuestions}
             </div>
           </div>
+
+        {/* Progress Bar */}
+        <div className="relative bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentQuestion + 1) / totalQuestions) * 100}%` }}
+            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+            transition={{ duration: 0.5 }}
+          />
         </div>
-      )}
 
-      {/* Quiz Content - Only show when loaded and no error */}
-      {!loading && !error && questions.length > 0 && currentQuiz && (
-        <>
-          {/* Header */}
-          <div className="relative z-10 px-6 pt-8 pb-4">
-            <div className="flex items-center justify-between mb-6">
+        {/* Word Card */}
+        <motion.div
+          key={currentQuestion}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white rounded-3xl p-8 text-center shadow-xl border border-gray-100"
+        >
+          <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider font-semibold">단어</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">{currentQuiz.word}</h1>
+          <p className="text-sm text-gray-500">뜻을 선택하세요</p>
+        </motion.div>
+
+        {/* Options */}
+        <div className="grid grid-cols-1 gap-3">
+          {currentQuiz.options.map((option, index) => {
+            const isSelected = selectedAnswer === option;
+            const isCorrect = option === currentQuiz.correctAnswer;
+            const showCorrect = showFeedback && isCorrect;
+            const showWrong = showFeedback && isSelected && !isCorrect;
+
+            return (
               <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={onBack}
-                className="w-12 h-12 rounded-2xl bg-white/90 backdrop-blur-md flex items-center justify-center shadow-lg border border-white/40"
+                key={option}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileTap={{ scale: showFeedback ? 1 : 0.97 }}
+                onClick={() => handleAnswerSelect(option)}
+                disabled={showFeedback}
+                className={`px-6 py-4 rounded-2xl transition-all text-left shadow-sm ${
+                  showCorrect
+                    ? 'bg-green-500 text-white shadow-lg'
+                    : showWrong
+                    ? 'bg-red-500 text-white shadow-lg'
+                    : isSelected
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'bg-white hover:bg-gray-50 border border-gray-200'
+                }`}
               >
-                <ArrowLeft className="w-5 h-5 text-[#091A7A]" />
-              </motion.button>
-
-              {/* Lives */}
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    animate={i >= lives ? { scale: [1, 0.5, 0.5] } : {}}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {i < lives ? (
-                      <Heart className="w-6 h-6 text-red-500 fill-red-500" />
-                    ) : (
-                      <Heart className="w-6 h-6 text-gray-300" />
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="relative bg-white/60 backdrop-blur-sm rounded-full h-6 overflow-hidden border border-white/60 shadow-sm mb-4">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${((currentQuestion + 1) / totalQuestions) * 100}%` }}
-                className="h-full bg-gradient-to-r from-[#091A7A] to-[#4F8EFF] rounded-full"
-                transition={{ duration: 0.5 }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold text-[#091A7A]">
-                  {currentQuestion + 1} / {totalQuestions}
-                </span>
-              </div>
-            </div>
-
-            {/* Timer */}
-            <motion.div
-              key={timeLeft}
-              initial={{ scale: 1 }}
-              animate={{ scale: timeLeft <= 3 ? [1, 1.1, 1] : 1 }}
-              transition={{ duration: 0.3 }}
-              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-2xl backdrop-blur-xl shadow-lg border ${
-                timeLeft <= 3 
-                  ? 'bg-red-500/90 border-red-300/50 text-white' 
-                  : 'bg-white/90 border-white/40 text-[#091A7A]'
-              }`}
-            >
-              <Timer className="w-5 h-5" />
-              <span className="font-bold text-xl">{timeLeft}초</span>
-            </motion.div>
-          </div>
-
-          {/* Main Content */}
-          <div className="relative z-10 px-6 pb-8">
-            
-            {/* Word Card */}
-            <motion.div
-              key={currentQuestion}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", duration: 0.6 }}
-              className="mb-8"
-            >
-              <div className="bg-gradient-to-br from-[#091A7A] to-[#4F8EFF] rounded-3xl p-8 shadow-2xl border border-white/20 relative overflow-hidden">
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-                
-                <div className="relative">
-                  <div className="text-center mb-2">
-                    <span className="text-[#ADC8FF] text-sm font-medium">단어</span>
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                    showCorrect || showWrong || isSelected
+                      ? 'bg-white/20 text-white'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {index + 1}
                   </div>
-                  <h1 className="text-center text-white text-5xl font-bold tracking-wide">
-                    {currentQuiz.word}
-                  </h1>
-                  <div className="flex items-center justify-center gap-2 mt-4">
-                    <Sparkles className="w-4 h-4 text-[#ADC8FF]" />
-                    <span className="text-[#ADC8FF] text-sm">뜻을 선택하세요</span>
-                    <Sparkles className="w-4 h-4 text-[#ADC8FF]" />
-                  </div>
+                  <div className="flex-1 font-medium text-base">{option}</div>
+                  {showCorrect && <CheckCircle className="w-6 h-6" />}
+                  {showWrong && <X className="w-6 h-6" />}
                 </div>
-              </div>
-            </motion.div>
+              </motion.button>
+            );
+          })}
+        </div>
 
-            {/* Answer Options */}
-            <div className="space-y-3">
-              {currentQuiz.options.map((option, index) => {
-                const isSelected = selectedAnswer === option;
-                const isCorrect = option === currentQuiz.correctAnswer;
-                const showCorrect = showFeedback && isCorrect;
-                const showWrong = showFeedback && isSelected && !isCorrect;
-
-                return (
-                  <motion.button
-                    key={option}
-                    initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileTap={{ scale: showFeedback ? 1 : 0.98 }}
-                    onClick={() => handleAnswerSelect(option)}
-                    disabled={showFeedback}
-                    className={`w-full px-6 py-5 rounded-2xl backdrop-blur-xl shadow-lg border-2 transition-all ${
-                      showCorrect
-                        ? 'bg-emerald-500/90 border-emerald-300 text-white scale-105'
-                        : showWrong
-                        ? 'bg-red-500/90 border-red-300 text-white'
-                        : isSelected
-                        ? 'bg-[#091A7A]/90 border-[#091A7A] text-white'
-                        : 'bg-white/90 border-white/40 text-[#091A7A] hover:bg-white/95'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${
-                        showCorrect
-                          ? 'bg-white/20 text-white'
-                          : showWrong
-                          ? 'bg-white/20 text-white'
-                          : isSelected
-                          ? 'bg-white/20 text-white'
-                          : 'bg-[#091A7A]/10 text-[#091A7A]'
-                      }`}>
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 text-left font-medium">
-                        {option}
-                      </div>
-                      {showCorrect && (
-                        <CheckCircle className="w-6 h-6 text-white" />
-                      )}
-                      {showWrong && (
-                        <X className="w-6 h-6 text-white" />
-                      )}
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {/* Score Display */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-6 text-center"
-            >
-              <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/40">
-                <Sparkles className="w-5 h-5 text-[#091A7A]" />
-                <span className="text-[#091A7A] font-bold">
-                  점수: {score} / {currentQuestion + 1}
-                </span>
-              </div>
-            </motion.div>
-          </div>
-        </>
-      )}
+        {/* Score */}
+        <div className="text-center text-sm text-gray-600 bg-white py-3 rounded-2xl shadow-sm">
+          점수: <span className="font-bold text-indigo-600">{score}</span> / {currentQuestion + 1} | 목표: <span className="font-bold text-indigo-600">27개 이상</span>
+        </div>
+      </div>
     </div>
   );
 }

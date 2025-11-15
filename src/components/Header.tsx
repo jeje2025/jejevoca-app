@@ -137,7 +137,7 @@ export function Header({ profileImage, userXP, recentXPGain, showXPAnimation, on
               transition={{ duration: showXPAnimation ? 1.5 : 0 }}
               className="text-small font-medium"
             >
-              {animatedXP.toLocaleString()} XP
+              {animatedXP.toLocaleString()} Point
             </motion.span>
             
             {/* Floating XP Gain Animation */}
@@ -151,7 +151,7 @@ export function Header({ profileImage, userXP, recentXPGain, showXPAnimation, on
                   className="absolute -top-8 left-12 flex items-center gap-1 bg-gradient-to-r from-green-500 to-green-600 text-white px-2 py-1 rounded-full text-xs font-medium shadow-lg"
                 >
                   <Plus className="w-3 h-3" />
-                  {recentXPGain} XP
+                  +{recentXPGain} Point
                 </motion.div>
               )}
             </AnimatePresence>

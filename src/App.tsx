@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Header } from './components/Header';
 import { ProgressCard } from './components/ProgressCard';
@@ -17,6 +17,8 @@ import { SubjectDetailScreen } from './components/SubjectDetailScreen';
 import { VocabularyCardScreen } from './components/VocabularyCardScreen';
 import { VideosScreen } from './components/VideosScreen';
 import { VocamonsterScreen } from './components/VocamonsterScreen';
+import { VocamonsterBattle } from './components/VocamonsterBattle';
+import { VocamonsterDeckScreen } from './components/VocamonsterDeckScreen';
 import { LessonPlayerScreen } from './components/LessonPlayerScreen';
 import { ProgressNotification } from './components/ProgressNotification';
 import { InlineXPNotification } from './components/InlineXPNotification';
@@ -34,11 +36,12 @@ import logoImage from 'figma:asset/2a6c1d3bb872264b344a42f0c6e792cd9cea4b63.png'
 import { initializeSampleWords } from './utils/api';
 import { authService } from './utils/auth';
 import { createAdminAccount } from './utils/createAdminAccount';
+import { supabase } from './utils/supabase-client';
 
 // 앱 로드 시 자동으로 관리자 계정 생성
 createAdminAccount();
 
-export type Screen = 'opening' | 'login' | 'admin-setup' | 'home' | 'quiz' | 'game-map-quiz' | 'quiz-completion' | 'ai' | 'leaderboard' | 'profile' | 'subject-detail' | 'vocabulary-cards' | 'videos' | 'vocamonster' | 'lesson-player';
+export type Screen = 'opening' | 'login' | 'admin-setup' | 'home' | 'quiz' | 'game-map-quiz' | 'quiz-completion' | 'ai' | 'leaderboard' | 'profile' | 'subject-detail' | 'vocabulary-cards' | 'videos' | 'vocamonster' | 'vocamonster-battle' | 'vocamonster-deck' | 'lesson-player';
 
 export interface Subject {
   id: string;
@@ -87,8 +90,10 @@ export default function App() {
   const [currentProfileImage, setCurrentProfileImage] = useState(profileImage);
   const [userName, setUserName] = useState(initialUserName());
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
-  const [userXP, setUserXP] = useState(5500);
+  const [battleMatchId, setBattleMatchId] = useState<string | null>(null);
+  const [userXP, setUserXP] = useState(0); // 이제 users.points와 동기화됨
   const [streakCount, setStreakCount] = useState(3);
+  const [loadingPoints, setLoadingPoints] = useState(true);
   const [completionData, setCompletionData] = useState({
     xpGained: 0,
     completionTime: '0:00',
@@ -118,6 +123,84 @@ export default function App() {
   
   // Save status management
   const { saveStatus, showIndicator, triggerSave, triggerError } = useSaveStatus();
+
+  // Load user points from users table and subscribe to real-time updates
+  useEffect(() => {
+    const loadUserPoints = async () => {
+      const user = authService.getUser();
+      if (!user) {
+        setLoadingPoints(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('points')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('포인트 로드 오류:', error);
+          // users 테이블에 points 필드가 없을 수 있으므로 기본값 사용
+          setUserXP(1000);
+        } else {
+          const points = data?.points || 1000;
+          // 포인트가 0이면 1000으로 설정
+          const finalPoints = points === 0 ? 1000 : points;
+          setUserXP(finalPoints);
+          const levelProgress = ProgressUtils.calculateLevel(finalPoints);
+          setLevelProgress(levelProgress);
+          
+          // 포인트가 0이었으면 데이터베이스에도 업데이트
+          if (points === 0) {
+            await supabase
+              .from('users')
+              .update({ points: 1000 })
+              .eq('id', user.id);
+          }
+        }
+      } catch (error) {
+        console.error('포인트 로드 실패:', error);
+        setUserXP(1000); // 기본값 1000
+      } finally {
+        setLoadingPoints(false);
+      }
+    };
+
+    loadUserPoints();
+
+    // 실시간 포인트 업데이트 구독
+    const user = authService.getUser();
+    if (user) {
+      const channel = supabase
+        .channel(`user-points-realtime-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'users',
+            filter: `id=eq.${user.id}`
+          },
+          (payload) => {
+            const updatedUser = payload.new as any;
+            if (updatedUser.points !== undefined) {
+              const newPoints = updatedUser.points || 0;
+              setUserXP(newPoints);
+              const levelProgress = ProgressUtils.calculateLevel(newPoints);
+              setLevelProgress(levelProgress);
+              console.log('✅ 포인트 실시간 업데이트:', newPoints);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        channel.unsubscribe();
+      };
+    }
+  }, []);
 
   const illustrationImage = "https://images.unsplash.com/photo-1743247299142-8f1c919776c4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHwzZCUyMGNoYXJhY3RlciUyMGxlYXJuaW5nJTIwaWxsdXN0cmF0aW9ufGVufDF8fHx8MTc1NzQzMTU5MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral";
 
@@ -176,7 +259,10 @@ export default function App() {
     setSelectedSubject(null);
   };
 
-  const handleXPGain = (points: number) => {
+  const handleXPGain = async (points: number) => {
+    const user = authService.getUser();
+    if (!user) return;
+
     const oldXP = userXP;
     const newXP = oldXP + points;
     
@@ -208,11 +294,27 @@ export default function App() {
         setNotificationData({
           type: 'xp-gain',
           title: 'Excellent Work!',
-          subtitle: 'You earned bonus XP!',
+          subtitle: 'You earned bonus Points!',
           xpGain: points
         });
         setShowProgressNotification(true);
       }
+    }
+    
+    // Update users.points in database
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ points: newXP })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('포인트 업데이트 오류:', error);
+      } else {
+        console.log('✅ 포인트 업데이트 완료:', newXP);
+      }
+    } catch (error) {
+      console.error('포인트 업데이트 실패:', error);
     }
     
     // Trigger save indicator
@@ -353,7 +455,7 @@ export default function App() {
       case 'login':
         return (
           <LoginScreen
-            onLoginSuccess={(isAdmin, userName) => {
+            onLoginSuccess={async (isAdmin, userName) => {
               if (isAdmin) {
                 // Admin logged in - show dashboard
                 setShowAdminDashboard(true);
@@ -361,6 +463,34 @@ export default function App() {
                 // Student logged in - go to home
                 if (userName) {
                   setUserName(userName);
+                }
+                // 로그인 후 포인트 다시 로드
+                const user = authService.getUser();
+                if (user) {
+                  try {
+                    const { data, error } = await supabase
+                      .from('users')
+                      .select('points')
+                      .eq('id', user.id)
+                      .single();
+                    if (!error && data) {
+                      const points = data.points || 1000;
+                      const finalPoints = points === 0 ? 1000 : points;
+                      setUserXP(finalPoints);
+                      const levelProgress = ProgressUtils.calculateLevel(finalPoints);
+                      setLevelProgress(levelProgress);
+                      
+                      // 포인트가 0이었으면 데이터베이스에도 업데이트
+                      if (points === 0) {
+                        await supabase
+                          .from('users')
+                          .update({ points: 1000 })
+                          .eq('id', user.id);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('로그인 후 포인트 로드 실패:', error);
+                  }
                 }
                 setCurrentScreen('home');
                 setActiveTab('home');
@@ -443,8 +573,35 @@ export default function App() {
         />;
       case 'videos':
         return <VideosScreen onBack={navigateBack} />;
-      case 'vocamonster':
-        return <VocamonsterScreen onBack={navigateBack} />;
+              case 'vocamonster':
+                return <VocamonsterScreen
+                  onBack={navigateBack}
+                  userPoints={userXP}
+                  onStartBattle={(matchId) => {
+                    setBattleMatchId(matchId)
+                    setCurrentScreen('vocamonster-battle')
+                  }}
+                  onOpenDeck={() => setCurrentScreen('vocamonster-deck')}
+                />;
+      case 'vocamonster-deck':
+        return <VocamonsterDeckScreen
+          onBack={() => setCurrentScreen('vocamonster')}
+        />;
+      case 'vocamonster-battle':
+        return battleMatchId ? (
+          <VocamonsterBattle
+            matchId={battleMatchId}
+            onBack={() => {
+              setBattleMatchId(null)
+              setCurrentScreen('vocamonster')
+            }}
+            onMatchEnd={(won, pointsGained) => {
+              setBattleMatchId(null)
+              setCurrentScreen('vocamonster')
+              // 포인트 업데이트는 VocamonsterBattle에서 처리됨
+            }}
+          />
+        ) : null;
       case 'subject-detail':
         return selectedSubject ? (
           <SubjectDetailScreen 
@@ -473,8 +630,16 @@ export default function App() {
     }
   };
 
+  const isVocamonsterScreen = currentScreen === 'vocamonster' || currentScreen === 'vocamonster-battle' || currentScreen === 'vocamonster-deck'
+  
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#ADC8FF] via-[#E8F2FF]/95 to-white overflow-hidden flex flex-col">
+    <div 
+      className="min-h-screen overflow-hidden flex flex-col"
+      style={isVocamonsterScreen 
+        ? { background: 'linear-gradient(180deg, #0E1647 0%, #0A1033 100%)' }
+        : { background: 'linear-gradient(to bottom, #ADC8FF, rgba(232, 242, 255, 0.95), white)' }
+      }
+    >
       {/* Admin Dashboard */}
       {showAdminDashboard && (
         <AdminDashboard onClose={handleAdminDashboardClose} />
@@ -621,9 +786,9 @@ export default function App() {
         {/* Bottom padding for navigation */}
         <div className={currentScreen === 'subject-detail' || currentScreen === 'vocabulary-cards' || currentScreen === 'lesson-player' || currentScreen === 'game-map-quiz' ? 'h-8' : 'h-28'} />
       </div>
-      
+
       {/* Bottom Navigation - Hidden on opening, login, subject detail, vocabulary cards, lesson player, game map quiz, and completion screens */}
-      {currentScreen !== 'opening' && currentScreen !== 'login' && currentScreen !== 'subject-detail' && currentScreen !== 'vocabulary-cards' && currentScreen !== 'lesson-player' && currentScreen !== 'game-map-quiz' && currentScreen !== 'quiz-completion' && (
+      {currentScreen !== 'opening' && currentScreen !== 'login' && currentScreen !== 'subject-detail' && currentScreen !== 'vocabulary-cards' && currentScreen !== 'lesson-player' && currentScreen !== 'game-map-quiz' && currentScreen !== 'quiz-completion' && currentScreen !== 'vocamonster-battle' && currentScreen !== 'vocamonster-deck' && (
         <BottomNavigation currentScreen={currentScreen} onScreenChange={(screen) => {
           if (screen === 'home') {
             handleBackToHome();

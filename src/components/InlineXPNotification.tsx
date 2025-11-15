@@ -38,7 +38,7 @@ export function InlineXPNotification({ show, xpGain }: InlineXPNotificationProps
             </motion.div>
             
             {/* XP Text */}
-            <span className="font-medium text-sm">{xpGain} XP</span>
+            <span className="font-medium text-sm">+{xpGain} Point</span>
             
             {/* Lightning Icon */}
             <motion.div

@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { QuizStatusUpdate } from './QuizStatusUpdate';
 import { MeaningQuizScreen } from './MeaningQuizScreen';
+import { DerivativeQuizScreen } from './DerivativeQuizScreen';
+import { SynonymQuizScreen } from './SynonymQuizScreen';
+import { ContextQuizScreen } from './ContextQuizScreen';
 
 interface GameMapQuizScreenProps {
   onBack: () => void;
@@ -815,31 +818,31 @@ const stageQuestions: Record<number, Question[]> = subjectQuestions.math;
 const subjectStages: Record<string, Stage[]> = {
   math: [
     { id: 1, title: "뜻 퀴즈", icon: <Target className="w-6 h-6" />, status: 'current', xpReward: 50 },
-    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'locked', xpReward: 75 },
-    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'locked', xpReward: 100 },
-    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'locked', xpReward: 125 },
-    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'locked', xpReward: 150 }
+    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'current', xpReward: 75 },
+    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'current', xpReward: 100 },
+    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'current', xpReward: 125 },
+    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'current', xpReward: 150 }
   ],
   english: [
     { id: 1, title: "뜻 퀴즈", icon: <Target className="w-6 h-6" />, status: 'current', xpReward: 50 },
-    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'locked', xpReward: 75 },
-    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'locked', xpReward: 100 },
-    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'locked', xpReward: 125 },
-    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'locked', xpReward: 150 }
+    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'current', xpReward: 75 },
+    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'current', xpReward: 100 },
+    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'current', xpReward: 125 },
+    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'current', xpReward: 150 }
   ],
   science: [
     { id: 1, title: "뜻 퀴즈", icon: <Target className="w-6 h-6" />, status: 'current', xpReward: 50 },
-    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'locked', xpReward: 75 },
-    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'locked', xpReward: 100 },
-    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'locked', xpReward: 125 },
-    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'locked', xpReward: 150 }
+    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'current', xpReward: 75 },
+    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'current', xpReward: 100 },
+    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'current', xpReward: 125 },
+    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'current', xpReward: 150 }
   ],
   social: [
     { id: 1, title: "뜻 퀴즈", icon: <Target className="w-6 h-6" />, status: 'current', xpReward: 50 },
-    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'locked', xpReward: 75 },
-    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'locked', xpReward: 100 },
-    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'locked', xpReward: 125 },
-    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'locked', xpReward: 150 }
+    { id: 2, title: "파생어 퀴즈", icon: <BookOpen className="w-6 h-6" />, status: 'current', xpReward: 75 },
+    { id: 3, title: "유반의어 퀴즈", icon: <Puzzle className="w-6 h-6" />, status: 'current', xpReward: 100 },
+    { id: 4, title: "맥락채우기", icon: <Key className="w-6 h-6" />, status: 'current', xpReward: 125 },
+    { id: 5, title: "몽땅퀴즈", icon: <Trophy className="w-6 h-6" />, status: 'current', xpReward: 150 }
   ]
 };
 
@@ -1272,7 +1275,7 @@ export function GameMapQuizScreen({
     // Get volume from selectedSubject bookNumber, default to 1
     const volume = selectedSubject?.bookNumber || 1;
     const day = 1; // TODO: Day를 선택할 수 있도록 UI 추가 예정
-    
+
     return (
       <MeaningQuizScreen
         volume={volume}
@@ -1283,7 +1286,76 @@ export function GameMapQuizScreen({
           const xpGained = score * 10;
           onXPGain(xpGained);
           setSessionXP(prev => prev + xpGained);
-          
+
+          // Complete stage and unlock next
+          completeStage();
+        }}
+      />
+    );
+  }
+
+  // Stage 2 (파생어 퀴즈) uses DerivativeQuizScreen
+  if (currentStage === 2) {
+    const volume = selectedSubject?.bookNumber || 1;
+    const day = 1; // TODO: Day를 선택할 수 있도록 UI 추가 예정
+
+    return (
+      <DerivativeQuizScreen
+        volume={volume}
+        day={day}
+        onBack={resetToMap}
+        onComplete={(score) => {
+          // Award XP based on score
+          const xpGained = score * 10;
+          onXPGain(xpGained);
+          setSessionXP(prev => prev + xpGained);
+
+          // Complete stage and unlock next
+          completeStage();
+        }}
+      />
+    );
+  }
+
+  // Stage 3 (유반의어 퀴즈) uses SynonymQuizScreen
+  if (currentStage === 3) {
+    const volume = selectedSubject?.bookNumber || 1;
+    const day = 1;
+
+    return (
+      <SynonymQuizScreen
+        volume={volume}
+        day={day}
+        onBack={resetToMap}
+        onComplete={(score) => {
+          // Award XP based on score
+          const xpGained = score * 10;
+          onXPGain(xpGained);
+          setSessionXP(prev => prev + xpGained);
+
+          // Complete stage and unlock next
+          completeStage();
+        }}
+      />
+    );
+  }
+
+  // Stage 4 (맥락채우기) uses ContextQuizScreen
+  if (currentStage === 4) {
+    const volume = selectedSubject?.bookNumber || 1;
+    const day = 1;
+
+    return (
+      <ContextQuizScreen
+        volume={volume}
+        day={day}
+        onBack={resetToMap}
+        onComplete={(score) => {
+          // Award XP based on score
+          const xpGained = score * 10;
+          onXPGain(xpGained);
+          setSessionXP(prev => prev + xpGained);
+
           // Complete stage and unlock next
           completeStage();
         }}
@@ -1506,73 +1578,84 @@ export function GameMapQuizScreen({
     );
   }
 
-  // Main Map View - Duolingo Style
+  // Main Map View
   return (
-    <div className="h-full bg-gradient-to-b from-[#ADC8FF] via-[#E8F2FF]/95 to-white relative overflow-hidden">
-      {/* Subtle Background Elements */}
-      <div className="absolute inset-0 opacity-20">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-          className="absolute top-20 right-16 w-20 h-20 bg-[#091A7A]/3 rounded-full"
-        />
-        <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-32 left-12 w-14 h-14 bg-[#4F8EFF]/3 rounded-full"
-        />
-      </div>
-
-      {/* Header */}  
-      <div className="relative z-10 p-6 border-b border-white/20 rounded-full">
-        <div className="flex items-center justify-between">
+    <div className="w-full max-w-sm mx-auto h-full bg-gradient-to-b from-[#ADC8FF] via-[#E8F2FF]/95 to-white relative overflow-hidden">
+      {/* Header */}
+      <div className="w-full h-24 bg-gradient-to-r from-[#091A7A] to-[#4F8EFF] shadow-xl relative z-10">
+        <div className="flex items-center justify-between h-full px-6">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onBack}
-            className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-card"
+            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-[#091A7A]" />
+            <ArrowLeft className="w-5 h-5 text-white" />
           </motion.button>
-          
-          <h1 className="text-main-heading text-[#091A7A]">{journeyName}</h1>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500" />
-              <span className="text-subheading text-[#091A7A]">{userXP + sessionXP} XP</span>
+
+          <h1 className="text-center text-white text-xl font-bold drop-shadow-lg">{journeyName}</h1>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <Star className="w-4 h-4 text-yellow-300" fill="currentColor" />
+              <span className="text-white text-sm font-bold">{userXP + sessionXP}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-orange-500" />
-              <span className="text-subheading text-[#091A7A]">{streakCount}</span>
+            <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              <Flame className="w-4 h-4 text-orange-300" fill="currentColor" />
+              <span className="text-white text-sm font-bold">{streakCount}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Duolingo-Style Map */}
+      {/* Map */}
       <div className="flex-1 relative z-10 overflow-y-auto scrollbar-hide">
-        <div className="max-w-sm mx-auto relative py-12">
-          
+        <div className="max-w-sm mx-auto relative py-12 px-6">
+
           {/* Day Info Card */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="absolute top-6 left-1/2 transform -translate-x-1/2 z-20 w-[calc(100%-32px)]"
+            className="w-full mb-8"
+            style={{ fontFamily: 'Lexend, sans-serif' }}
           >
-            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-lg border border-white/40">
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(24px)',
+              borderRadius: '20px',
+              boxShadow: '0 10px 30px rgba(9, 26, 122, 0.15)',
+              padding: '1.5rem'
+            }}>
               <div className="text-center">
-                <div className="text-xs text-[#4F8EFF] mb-1">오늘의 학습</div>
-                <h2 className="text-xl font-bold text-[#091A7A]">Day 1</h2>
-                <p className="text-sm text-[#4F8EFF]/70 mt-1">단어 1~30번</p>
+                <div style={{
+                  color: '#091A7A',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.5rem'
+                }}>오늘의 학습</div>
+                <h2 style={{
+                  fontSize: '24px',
+                  fontWeight: 800,
+                  background: 'linear-gradient(to right, #091A7A, #4F8EFF)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '0.5rem'
+                }}>Day 1</h2>
+                <p style={{
+                  color: '#6B7280',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}>단어 1~30번</p>
               </div>
             </div>
           </motion.div>
 
           {/* Minimalist Connection Path */}
-          <svg 
-            className="absolute inset-0 w-full h-full pointer-events-none z-0" 
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none z-0"
             viewBox="0 0 300 700"
             preserveAspectRatio="xMidYMin meet"
           >
@@ -1584,9 +1667,9 @@ export function GameMapQuizScreen({
               </linearGradient>
             </defs>
             <motion.path
-              d="M 150 150 
+              d="M 150 150
                  C 150 170, 120 210, 80 270
-                 C 40 330, 120 350, 220 390  
+                 C 40 330, 120 350, 220 390
                  C 320 430, 220 450, 80 510
                  C -60 570, 120 590, 150 630"
               stroke="url(#pathGradient)"
@@ -1629,22 +1712,40 @@ export function GameMapQuizScreen({
                     transform: position.transform,
                   }}
                 >
-                  {/* Clean Modern Stage Button */}
+                  {/* Stage Button */}
                   <motion.button
-                    whileHover={{ 
+                    whileHover={{
                       scale: stage.status !== 'locked' ? 1.08 : 1,
                       y: stage.status !== 'locked' ? -2 : 0,
                     }}
                     whileTap={{ scale: stage.status !== 'locked' ? 0.95 : 1 }}
                     onClick={() => handleStageClick(stage.id)}
                     disabled={stage.status === 'locked'}
-                    className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 backdrop-blur-md border ${
-                      stage.status === 'completed' 
-                        ? 'bg-gradient-to-br from-emerald-400/90 to-emerald-600/90 border-emerald-300/50 text-white shadow-lg shadow-emerald-500/25' 
-                        : stage.status === 'current'
-                        ? 'bg-gradient-to-br from-[#091A7A]/90 to-[#4F8EFF]/90 border-[#ADC8FF]/50 text-white shadow-lg shadow-[#091A7A]/25'
-                        : 'bg-white/60 border-gray-200/50 text-gray-400 cursor-not-allowed shadow-sm'
-                    }`}
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.3s',
+                      backdropFilter: 'blur(24px)',
+                      fontFamily: 'Lexend, sans-serif',
+                      ...(stage.status === 'completed' ? {
+                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                        boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                        border: 'none'
+                      } : stage.status === 'current' ? {
+                        background: 'linear-gradient(135deg, #4F8EFF 0%, #091A7A 100%)',
+                        boxShadow: '0 8px 24px rgba(79, 142, 255, 0.35)',
+                        border: 'none'
+                      } : {
+                        background: 'rgba(255, 255, 255, 0.4)',
+                        border: '2px solid rgba(209, 213, 219, 0.5)',
+                        opacity: 0.6,
+                        cursor: 'not-allowed'
+                      })
+                    }}
                   >
                     {/* Modern Icon Display */}
                     {stage.status === 'completed' ? (
@@ -1653,66 +1754,81 @@ export function GameMapQuizScreen({
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
                       >
-                        <CheckCircle className="w-7 h-7" />
+                        <CheckCircle className="w-8 h-8 text-white" />
                       </motion.div>
                     ) : (
                       <div className="relative">
-                        <div className="w-6 h-6">{stage.icon}</div>
+                        <div className={`w-7 h-7 ${stage.status === 'locked' ? 'text-gray-400' : 'text-white'}`}>{stage.icon}</div>
                         {stage.status === 'locked' && (
                           <div className="absolute inset-0 bg-white/20 rounded backdrop-blur-sm" />
                         )}
                       </div>
                     )}
-                    
-                    {/* Minimal Number Badge */}
-                    <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-lg flex items-center justify-center text-xs font-semibold shadow-sm ${
-                      stage.status === 'completed' 
-                        ? 'bg-emerald-500 text-white' 
-                        : stage.status === 'current'
-                        ? 'bg-[#091A7A] text-white'
-                        : 'bg-gray-300 text-gray-600'
-                    }`}>
+
+                    {/* Number Badge */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      fontFamily: 'Lexend, sans-serif',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      ...(stage.status === 'completed' ? {
+                        background: 'linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%)',
+                        color: '#FFFFFF'
+                      } : stage.status === 'current' ? {
+                        background: 'linear-gradient(135deg, #091A7A 0%, #4F8EFF 100%)',
+                        color: '#FFFFFF'
+                      } : {
+                        background: '#D1D5DB',
+                        color: '#6B7280'
+                      })
+                    }}>
                       {stage.id}
                     </div>
-                    
-                    {/* Subtle Glow for Current Stage */}
-                    {stage.status === 'current' && (
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0, 0.4] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-0 bg-[#ADC8FF] rounded-2xl -z-10"
-                      />
-                    )}
-
-                    {/* Minimal Success Indicator */}
-                    {stage.status === 'completed' && (
-                      <motion.div
-                        animate={{ scale: [1, 1.05, 1] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-0 bg-emerald-400/20 rounded-2xl -z-10"
-                      />
-                    )}
                   </motion.button>
 
-                  {/* Clean Tooltip */}
+                  {/* Tooltip */}
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.2 + 0.6 }}
-                    className={`absolute top-20 text-center z-20 ${
+                    className={`absolute top-24 text-center z-20 ${
                       index === 2 || index === 4 ? 'right-0 transform translate-x-4' : 'left-1/2 transform -translate-x-1/2'
                     }`}
                   >
-                    <div className={`px-3 py-2 rounded-xl backdrop-blur-md shadow-sm border text-xs whitespace-nowrap ${
-                      stage.status === 'completed' 
-                        ? 'bg-emerald-50/90 border-emerald-200/50 text-emerald-700' 
-                        : stage.status === 'current'
-                        ? 'bg-white/90 border-[#ADC8FF]/50 text-[#091A7A]'
-                        : 'bg-gray-50/90 border-gray-200/50 text-gray-500'
-                    }`}>
-                      <div className="font-medium mb-1 whitespace-nowrap">{stage.title}</div>
-                      <div className="opacity-75 whitespace-nowrap">
-                        {stage.status === 'locked' ? '🔒' : 
+                    <div style={{
+                      padding: '0.5rem 1rem',
+                      borderRadius: '12px',
+                      backdropFilter: 'blur(16px)',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                      fontSize: '13px',
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'Lexend, sans-serif',
+                      ...(stage.status === 'completed' ? {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#059669'
+                      } : stage.status === 'current' ? {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid rgba(79, 142, 255, 0.3)',
+                        color: '#091A7A'
+                      } : {
+                        background: 'rgba(255, 255, 255, 0.8)',
+                        border: '1px solid rgba(209, 213, 219, 0.5)',
+                        color: '#6B7280'
+                      })
+                    }}>
+                      <div style={{ fontWeight: 700, marginBottom: '0.125rem' }}>{stage.title}</div>
+                      <div style={{ fontSize: '11px' }}>
+                        {stage.status === 'locked' ? '🔒 Locked' :
                          stage.status === 'completed' ? '✓ Complete' :
                          `${stage.xpReward} XP`}
                       </div>
@@ -1723,41 +1839,98 @@ export function GameMapQuizScreen({
             })}
           </div>
           
-          {/* Modern Progress Card */}
+          {/* Progress Card */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 0.8 }}
-            className="mt-[750px] mx-4 p-6 bg-white/85 backdrop-blur-xl rounded-3xl border border-white/40 shadow-lg"
+            className="mt-[750px]"
+            style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(24px)',
+              borderRadius: '20px',
+              boxShadow: '0 10px 30px rgba(9, 26, 122, 0.15)',
+              padding: '2rem',
+              fontFamily: 'Lexend, sans-serif'
+            }}
           >
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-6">
               <div>
-                <h3 className="text-subheading text-[#091A7A] font-semibold mb-1">Your Progress</h3>
-                <p className="text-small text-[#4F8EFF] opacity-80">{journeyName} Completion</p>
+                <h3 style={{
+                  fontSize: '24px',
+                  fontWeight: 800,
+                  background: 'linear-gradient(to right, #091A7A, #4F8EFF)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  marginBottom: '0.5rem'
+                }}>진행 상황</h3>
+                <p style={{
+                  color: '#6B7280',
+                  fontSize: '13px',
+                  fontWeight: 500
+                }}>{journeyName} 완료율</p>
               </div>
-              
-              <div className="flex items-center justify-center gap-6">
+
+              <div className="flex items-center justify-center gap-8">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-[#091A7A] mb-1">
+                  <div style={{
+                    fontSize: '36px',
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #10B981, #059669)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    marginBottom: '0.25rem'
+                  }}>
                     {stages.filter(s => s.status === 'completed').length}
                   </div>
-                  <div className="text-small text-[#4F8EFF]">Complete</div>
+                  <div style={{
+                    color: '#6B7280',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>완료</div>
                 </div>
-                <div className="w-px h-8 bg-gray-200"></div>
+                <div className="w-px h-12 bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-400 mb-1">
+                  <div style={{
+                    fontSize: '36px',
+                    fontWeight: 800,
+                    background: 'linear-gradient(135deg, #9CA3AF, #6B7280)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    marginBottom: '0.25rem'
+                  }}>
                     {stages.filter(s => s.status === 'locked').length}
                   </div>
-                  <div className="text-small text-gray-400">Remaining</div>
+                  <div style={{
+                    color: '#6B7280',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>남음</div>
                 </div>
               </div>
-              
-              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+
+              <div style={{
+                width: '100%',
+                height: '12px',
+                background: 'rgba(229, 231, 235, 0.8)',
+                borderRadius: '999px',
+                overflow: 'hidden',
+                boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)'
+              }}>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(stages.filter(s => s.status === 'completed').length / stages.length) * 100}%` }}
                   transition={{ delay: 2, duration: 1.5, ease: "easeOut" }}
-                  className="h-full bg-gradient-to-r from-[#091A7A] to-[#4F8EFF] rounded-full"
+                  style={{
+                    height: '100%',
+                    background: 'linear-gradient(to right, #091A7A, #4F8EFF)',
+                    borderRadius: '999px',
+                    boxShadow: '0 2px 8px rgba(79, 142, 255, 0.4)'
+                  }}
                 />
               </div>
             </div>

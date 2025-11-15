@@ -35,7 +35,7 @@ export function LeaderboardScreen({ onBack, userXP }: LeaderboardScreenProps) {
       const convertedData: LeaderboardUser[] = data.map((entry, index) => ({
         id: entry.id,
         name: entry.name,
-        xp: entry.total_xp,
+        xp: entry.points || entry.total_xp || 0, // Use points if available, fallback to total_xp
         avatar: entry.avatar_url || `https://images.unsplash.com/photo-1640202584480-4046a81d9da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWVuYWdlJTIwZ2lybCUyMHBvcnRyYWl0JTIwZmFjZSUyMGNsZWFyfGVufDF8fHx8MTc1NzUyMDU1OHww&ixlib=rb-4.1.0&q=80&w=1080`,
         rank: index + 1,
         isCurrentUser: false // TODO: Check if current user
@@ -244,7 +244,7 @@ export function LeaderboardScreen({ onBack, userXP }: LeaderboardScreenProps) {
                     </p>
                     <div className="flex items-center gap-1">
                       <Zap className="w-3 h-3 text-yellow-500" fill="currentColor" />
-                      <span className="text-xs text-[#091A7A]/70">{user.xp.toLocaleString()} XP</span>
+                      <span className="text-xs text-[#091A7A]/70">{user.xp.toLocaleString()} Point</span>
                     </div>
                   </div>
                 </div>

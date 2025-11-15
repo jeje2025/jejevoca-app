@@ -54,17 +54,37 @@ const useGameStore = create((set, get) => ({
     
     set({ isLoading: true })
     try {
-      const { data, error } = await supabase
+      // Fetch deck items first
+      const { data: deckItems, error: deckError } = await supabase
         .from('user_decks')
-        .select(`
-          *,
-          word:words(*)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .limit(50)
       
-      if (error) throw error
-      set({ myDeck: data || [] })
+      if (deckError) throw deckError
+      
+      if (!deckItems || deckItems.length === 0) {
+        set({ myDeck: [] })
+        return
+      }
+
+      // Fetch words separately
+      const wordIds = deckItems.map(item => item.word_id)
+      const { data: wordsData, error: wordsError } = await supabase
+        .from('words')
+        .select('*')
+        .in('id', wordIds)
+      
+      if (wordsError) throw wordsError
+
+      // Combine deck items with words
+      const wordsMap = new Map((wordsData || []).map(w => [w.id, w]))
+      const deckWithWords = deckItems.map(item => ({
+        ...item,
+        word: wordsMap.get(item.word_id) || null
+      }))
+      
+      set({ myDeck: deckWithWords || [] })
     } catch (error) {
       set({ error: error.message })
     } finally {

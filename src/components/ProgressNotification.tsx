@@ -160,7 +160,7 @@ export function ProgressNotification({
                     className="flex items-center justify-center gap-1.5 bg-white/20 rounded-full px-3 py-1.5 backdrop-blur-sm"
                   >
                     <Zap className="w-3.5 h-3.5 text-yellow-300" fill="currentColor" />
-                    <span className="text-white font-medium text-xs">+{xpGain} XP</span>
+                    <span className="text-white font-medium text-xs">+{xpGain} Point</span>
                   </motion.div>
                 )}
 

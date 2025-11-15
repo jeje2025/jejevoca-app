@@ -338,7 +338,10 @@ export async function deleteStudent(accessToken: string, studentId: string): Pro
 export interface LeaderboardEntry {
   id: string;
   name: string;
-  total_xp: number;
+  total_xp: number; // backward compatibility
+  points: number; // 실제 포인트 (total_xp와 동일)
+  wins?: number;
+  losses?: number;
   avatar_url?: string;
 }
 
