@@ -2088,7 +2088,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 flex flex-col flex-1 overflow-hidden">
+              <div className="space-y-4 flex flex-col flex-1 min-h-0">
                 {!selectedWord ? (
                   <>
                     <div className="space-y-2 h-full overflow-y-auto pr-1">
