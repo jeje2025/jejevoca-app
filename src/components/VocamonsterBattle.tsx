@@ -1234,8 +1234,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         ? Math.max(0, matchData.player1_hearts - damage)
         : Math.max(0, matchData.player2_hearts - damage)
 
-      // 턴 전환: 봇이 맞췄을 때만 봇 턴 유지, 틀렸으면 플레이어 턴으로
-      const nextTurn = isCorrect ? BOT_ID : turn.attacker_id
+      // 턴 전환 로직: 방어 성공하면 방어자 턴, 실패하면 공격자 턴 유지
+      const nextTurn = isCorrect ? turn.defender_id : turn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
@@ -1330,14 +1330,14 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         })
         .eq('id', currentTurn.id)
 
-      // 매치 정보 업데이트
+      // 매치 정보 업데이트 - 하트만 업데이트, 턴은 폴링에서 처리
       const isPlayer1 = match.player1_id === user.id
       const newHearts = isPlayer1
         ? Math.max(0, match.player1_hearts - heartLoss)
         : Math.max(0, match.player2_hearts - heartLoss)
 
-      // 턴 전환: 플레이어가 틀렸을 때만 봇 턴으로, 맞췄으면 플레이어 턴 유지
-      const nextTurn = correct ? user.id : BOT_ID
+      // 턴 전환 로직: 방어 성공하면 방어자 턴, 실패하면 공격자 턴 유지
+      const nextTurn = correct ? currentTurn.defender_id : currentTurn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
@@ -1350,9 +1350,6 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         updateData.status = 'finished'
         updateData.winner_id = currentTurn.attacker_id
       }
-
-      // 로컬 상태를 먼저 업데이트 (봇 턴 트리거 방지)
-      setIsMyTurn(correct)
 
       await supabase
         .from('battles')
