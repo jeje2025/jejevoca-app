@@ -2081,10 +2081,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 min-h-[400px]">
+              <div className="space-y-4 h-[50vh] max-h-[400px] flex flex-col">
                 {!selectedWord ? (
                   <>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                    <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                       {availableDeck.map((word) => (
                         <button
                           key={word.id}
@@ -2098,7 +2098,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </>
                 ) : !questionType ? (
-                  <div className="space-y-2 flex flex-col">
+                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white font-black text-lg">{selectedWord.word}</p>
                       <button
@@ -2141,8 +2141,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="vocamonster-card p-3 mb-4 border-white/10 flex items-center justify-between">
+                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
+                    <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white text-lg font-black">{selectedWord.word}</p>
                       <span className="text-yellow-300 text-xs font-bold">
                         {questionType === 'meaning' ? '뜻' : questionType === 'synonym' ? '동의어' : '반의어'}
@@ -2179,7 +2179,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     >
                       공격 유형 다시 선택
                     </motion.button>
-                  </>
+                  </div>
                 )}
               </div>
             </motion.div>
