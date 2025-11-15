@@ -717,7 +717,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         await showQuestionToDefender(insertedTurn as MatchTurn)
       }
 
-      console.log('🤖 턴 전환 시도 (플레이어에게 질문):', defenderId)
+      console.log(`🤖 봇 공격 완료 → 턴을 플레이어(${defenderId})에게 넘김`)
       const { error: turnError } = await supabase
         .from('battles')
         .update({ current_turn: defenderId })
@@ -728,7 +728,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         throw turnError
       }
 
-      console.log('🤖 턴 전환 완료, 이제 플레이어가 방어해야 함')
+      console.log('✅ 턴 전환 완료: 이제 플레이어 방어 차례')
     } catch (error) {
       console.error('봇 공격 생성 오류:', error)
     } finally {
@@ -1228,17 +1228,20 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       if (!matchData) return
 
       const isPlayer1 = matchData.player1_id === turn.defender_id
+      const damage = isCorrect ? 0 : 1
       const newHearts = isPlayer1
-        ? Math.max(0, matchData.player1_hearts - (isCorrect ? 0 : 1))
-        : Math.max(0, matchData.player2_hearts - (isCorrect ? 0 : 1))
+        ? Math.max(0, matchData.player1_hearts - damage)
+        : Math.max(0, matchData.player2_hearts - damage)
 
-      // 방어 성공하면 방어자가 턴을 가져감, 실패하면 공격자가 계속 공격
+      // 턴 전환: 방어 성공 → 방어자 턴, 방어 실패 → 공격자 계속
       const nextTurn = isCorrect ? turn.defender_id : turn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
         current_turn: nextTurn
       }
+
+      console.log(`🎯 봇 방어 결과: ${isCorrect ? '성공' : '실패'}, 다음 턴: ${nextTurn === BOT_ID ? 'BOT' : 'PLAYER'}`)
 
       if (newHearts === 0) {
         updateData.status = 'finished'
@@ -1332,12 +1335,15 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         ? Math.max(0, match.player1_hearts - heartLoss)
         : Math.max(0, match.player2_hearts - heartLoss)
 
+      // 턴 전환: 방어 성공 → 방어자 턴, 방어 실패 → 공격자 계속
       const nextTurn = correct ? user.id : currentTurn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
         current_turn: nextTurn
       }
+
+      console.log(`🎯 플레이어 방어 결과: ${correct ? '성공' : '실패'}, 다음 턴: ${nextTurn === user.id ? 'PLAYER' : 'BOT'}`)
 
       if (newHearts === 0) {
         updateData.status = 'finished'
@@ -2081,7 +2087,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 h-[50vh] max-h-[400px] flex flex-col">
+              <div className="space-y-4 max-h-[300px] flex flex-col">
                 {!selectedWord ? (
                   <>
                     <div className="space-y-2 flex-1 overflow-y-auto pr-1">
