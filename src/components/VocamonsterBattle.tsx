@@ -1232,8 +1232,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
         ? Math.max(0, matchData.player1_hearts - (isCorrect ? 0 : 1))
         : Math.max(0, matchData.player2_hearts - (isCorrect ? 0 : 1))
 
-      // VOCABOT 방어 후에는 항상 VOCABOT 턴으로 넘겨, 바로 공격하도록 설정
-      const nextTurn = turn.defender_id
+      // 방어 성공하면 방어자가 턴을 가져감, 실패하면 공격자가 계속 공격
+      const nextTurn = isCorrect ? turn.defender_id : turn.attacker_id
 
       const updateData: any = {
         [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
