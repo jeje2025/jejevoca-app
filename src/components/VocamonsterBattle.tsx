@@ -657,7 +657,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
   }
 
-  const botAutoAttack = async () => {
+  const botAutoAttack = useCallback(async () => {
     console.log('🤖 botAutoAttack 시작')
     setBotThinking(true)
 
@@ -736,7 +736,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.log('🤖 botThinking false로 설정')
       setBotThinking(false)
     }
-  }
+  }, [match, user?.id])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
