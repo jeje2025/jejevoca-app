@@ -194,10 +194,11 @@ export function VocamonsterScreen({ onBack, onStartBattle, onOpenDeck, userPoint
       const waiting = data.find(match => match.status === 'waiting' && match.player1_id === user.id)
       setMyWaitingMatch(waiting || null)
 
-      const active = data.find(match => match.status === 'active')
-      if (active) {
-        setAutoLaunchMatchId(active.id)
-      }
+      // active 매치는 자동 시작하지 않음 - 사용자가 수동으로 재개해야 함
+      // const active = data.find(match => match.status === 'active')
+      // if (active) {
+      //   setAutoLaunchMatchId(active.id)
+      // }
     } catch (error) {
       console.error('내 매치 로드 오류:', error)
     }
