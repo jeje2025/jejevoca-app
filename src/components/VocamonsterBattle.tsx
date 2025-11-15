@@ -497,24 +497,25 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     if (!match || !user) return
 
     const isBotTurn = match.current_turn === BOT_ID
-    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
+    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel && !isMyTurn
 
     if (isBotTurn && canAttack && match.status === 'active') {
-      console.log('🤖 봇 턴 감지! 2초 후 자동 공격 (공격패널 체크: closed)')
+      console.log('🤖 봇 턴 감지! 2초 후 자동 공격')
       const timer = setTimeout(() => {
         // 타이머 실행 시점에도 한 번 더 체크
-        if (!showAttackPanel && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult) {
+        if (!showAttackPanel && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !isMyTurn) {
+          console.log('✅ 봇 공격 실행')
           botAutoAttack()
         } else {
-          console.log('🤖 공격 취소: 다른 모달이 열려있음')
+          console.log('🤖 공격 취소:', { showAttackPanel, isMyTurn, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
         }
       }, 2000)
 
       return () => clearTimeout(timer)
     } else if (isBotTurn && !canAttack) {
-      console.log('🤖 봇 턴이지만 공격 불가:', { showAttackPanel, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
+      console.log('🤖 봇 턴이지만 공격 불가:', { showAttackPanel, isMyTurn, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
     }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, isMyTurn])
 
   const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
