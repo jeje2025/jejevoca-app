@@ -500,12 +500,19 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
 
     if (isBotTurn && canAttack && match.status === 'active') {
-      console.log('🤖 봇 턴 감지! 2초 후 자동 공격')
+      console.log('🤖 봇 턴 감지! 2초 후 자동 공격 (공격패널 체크: closed)')
       const timer = setTimeout(() => {
-        botAutoAttack()
+        // 타이머 실행 시점에도 한 번 더 체크
+        if (!showAttackPanel && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult) {
+          botAutoAttack()
+        } else {
+          console.log('🤖 공격 취소: 다른 모달이 열려있음')
+        }
       }, 2000)
 
       return () => clearTimeout(timer)
+    } else if (isBotTurn && !canAttack) {
+      console.log('🤖 봇 턴이지만 공격 불가:', { showAttackPanel, showQuestion, showBotDefenseResult, showOpponentDefenseResult })
     }
   }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
@@ -2087,10 +2094,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="space-y-4 max-h-[300px] flex flex-col">
+              <div className="space-y-4 h-[350px] flex flex-col">
                 {!selectedWord ? (
                   <>
-                    <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+                    <div className="space-y-2 h-full overflow-y-auto pr-1">
                       {availableDeck.map((word) => (
                         <button
                           key={word.id}
@@ -2104,7 +2111,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </>
                 ) : !questionType ? (
-                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
+                  <div className="space-y-2 h-full flex flex-col overflow-y-auto">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white font-black text-lg">{selectedWord.word}</p>
                       <button
@@ -2147,7 +2154,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2 flex-1 flex flex-col overflow-y-auto">
+                  <div className="space-y-2 h-full flex flex-col overflow-y-auto">
                     <div className="vocamonster-card p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10 flex items-center justify-between">
                       <p className="text-white text-lg font-black">{selectedWord.word}</p>
                       <span className="text-yellow-300 text-xs font-bold">
