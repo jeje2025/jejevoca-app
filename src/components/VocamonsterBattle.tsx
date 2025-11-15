@@ -492,24 +492,6 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     return () => clearInterval(interval)
   }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
-  // 봇 자동 공격 트리거 (봇 턴일 때만, 단 showBotDefenseResult가 false일 때만)
-  useEffect(() => {
-    if (!match || !user) return
-
-    const isBotTurn = match.current_turn === BOT_ID
-    // showBotDefenseResult가 true이면 "계속하기" 버튼을 기다림
-    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
-
-    if (isBotTurn && canAttack && match.status === 'active') {
-      console.log('🤖 봇 턴! 2초 후 자동 공격')
-      const timer = setTimeout(() => {
-        botAutoAttack()
-      }, 2000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
-
   const addBattleLog = useCallback((message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
       id: Date.now(),
@@ -737,6 +719,24 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setBotThinking(false)
     }
   }, [match, user?.id, addBattleLog])
+
+  // 봇 자동 공격 트리거 (봇 턴일 때만, 단 showBotDefenseResult가 false일 때만)
+  useEffect(() => {
+    if (!match || !user) return
+
+    const isBotTurn = match.current_turn === BOT_ID
+    // showBotDefenseResult가 true이면 "계속하기" 버튼을 기다림
+    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
+
+    if (isBotTurn && canAttack && match.status === 'active') {
+      console.log('🤖 봇 턴! 2초 후 자동 공격')
+      const timer = setTimeout(() => {
+        botAutoAttack()
+      }, 2000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
