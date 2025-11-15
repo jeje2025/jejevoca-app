@@ -123,12 +123,12 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const [usedWordIds, setUsedWordIds] = useState<Set<string>>(new Set())
   const prevMatchRef = useRef<Match | null>(null)
   const botAutoAnswerRef = useRef<((turn: MatchTurn) => Promise<void>) | null>(null)
-  const triggerDamageAnimation = (amount: number) => {
+  const triggerDamageAnimation = useCallback((amount: number) => {
     setDamage(amount)
     setDamagePosition('left')
     setShowDamageAnimation(true)
     setTimeout(() => setShowDamageAnimation(false), 800)
-  }
+  }, [])
 
   useEffect(() => {
     if (!user) {
@@ -150,10 +150,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
 
     initBattle()
-  }
+  }, [matchId, user?.id])
 
   // 시간 초과 시 턴 넘기기 함수
-  const skipTurn = async () => {
+  const skipTurn = useCallback(async () => {
     if (!match || !user) return
 
     const isPlayer1 = match.player1_id === user.id
@@ -172,10 +172,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       type: 'attack'
     }
     setBattleLogs(prev => [newLog, ...prev].slice(0, 5))
-  }
+  }, [match, user, matchId])
 
   // 시간 초과 시 자동 오답 처리 함수
-  const handleTimeOut = async () => {
+  const handleTimeOut = useCallback(async () => {
     if (!match || !currentQuestion || !user) return
     if (isAnswering || showResult) return
     
@@ -270,7 +270,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setIsAnswering(false)
       setTimeLeft(10)
     }
-  }
+  }, [match, currentQuestion, user, isAnswering, showResult, matchId, userDeck])
 
   useEffect(() => {
     if (!match) return
@@ -303,7 +303,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }, 1000)
 
     return () => clearTimeout(timer)
-  }
+  }, [timeLeft, isMyTurn, showQuestion, match, isAnswering, showResult, currentQuestion, handleTimeOut, skipTurn])
 
   useEffect(() => {
     if (isMyTurn && !showQuestion) {
@@ -317,7 +317,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setQuestionType(null)
       attackPanelOpenedRef.current = false
     }
-  }
+  }, [isMyTurn, showQuestion])
 
   // 모달 열릴 때 body 스크롤 막기
   useEffect(() => {
@@ -348,7 +348,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       document.body.style.width = ''
       document.body.style.overflow = ''
     }
-  }
+  }, [showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
   // 폴링 기반 매치/방어 턴 체크
   useEffect(() => {
@@ -490,9 +490,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }, 2000)
 
     return () => clearInterval(interval)
-  }
+  }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
-  const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
+  const addBattleLog = useCallback((message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
       id: Date.now(),
       message,
@@ -503,9 +503,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     // 토스트로도 표시
     setToastMessage({ message, type })
     setTimeout(() => setToastMessage(null), 3000) // 3초 후 자동으로 사라짐
-  }
+  }, [])
 
-  const loadMatch = async () => {
+  const loadMatch = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('battles')
@@ -540,9 +540,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       onBack()
       throw error
     }
-  }
+  }, [matchId, user?.id, addBattleLog, onBack])
 
-  const loadUserDeck = async () => {
+  const loadUserDeck = useCallback(async () => {
     try {
       const token = authService.getAccessToken()
       
@@ -610,9 +610,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('덱 로드 오류:', error)
     }
-  }
+  }, [])
 
-  const leaveBattle = async () => {
+  const leaveBattle = useCallback(async () => {
     try {
       if (match && match.status !== 'finished') {
         const isPlayer1 = match.player1_id === user?.id
@@ -637,9 +637,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('배틀 종료 처리 오류:', error)
     }
-  }
+  }, [match, user?.id])
 
-  const botAutoAttack = async () => {
+  const botAutoAttack = useCallback(async () => {
     console.log('🤖 botAutoAttack 시작')
     setBotThinking(true)
 
@@ -718,7 +718,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.log('🤖 botThinking false로 설정')
       setBotThinking(false)
     }
-  }
+  }, [match, user?.id, addBattleLog])
 
   // 봇 자동 공격 트리거 (봇 턴일 때만, 단 showBotDefenseResult가 false일 때만)
   useEffect(() => {
@@ -736,7 +736,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
       return () => clearTimeout(timer)
     }
-  }
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showResult, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
@@ -1103,7 +1103,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
   }
 
-  const botAutoAnswer = async (turn: MatchTurn) => {
+  const botAutoAnswer = useCallback(async (turn: MatchTurn) => {
     try {
       console.log('봇이 답변 중...', turn)
 
@@ -1257,14 +1257,14 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('봇 답변 오류:', error)
     }
-  }
+  }, [userDeck, matchId])
 
   // botAutoAnswer를 ref에 할당
   useEffect(() => {
     botAutoAnswerRef.current = botAutoAnswer
-  }
+  }, [botAutoAnswer])
 
-  const submitAnswer = async (answer: string) => {
+  const submitAnswer = useCallback(async (answer: string) => {
     if (!match || !currentQuestion || !user) return
     
     // 이미 답변을 제출한 상태면 중복 실행 방지
@@ -1373,7 +1373,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setIsAnswering(false)
       setTimeLeft(10)
     }
-  }
+  }, [match, currentQuestion, user, isAnswering, showResult, matchId, userDeck])
 
   if (loading) {
     return (
