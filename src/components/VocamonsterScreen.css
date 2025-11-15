@@ -501,8 +501,6 @@
   border: 1px solid rgba(148, 163, 184, 0.2);
   padding: 1.25rem 1.5rem 2rem 1.5rem;
   box-shadow: 0px -20px 50px rgba(0, 0, 0, 0.55);
-  max-height: 80vh;
-  overflow-y: auto;
 }
 
 .vocamonster-bottom-handle {
