@@ -497,7 +497,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     if (!match || !user) return
 
     const isBotTurn = match.current_turn === BOT_ID
-    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult
+    const canAttack = !botThinking && !showQuestion && !showBotDefenseResult && !showOpponentDefenseResult && !showAttackPanel
 
     if (isBotTurn && canAttack && match.status === 'active') {
       console.log('🤖 봇 턴 감지! 2초 후 자동 공격')
@@ -507,7 +507,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
       return () => clearTimeout(timer)
     }
-  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult])
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
   const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
@@ -1824,11 +1824,11 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
-            className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[9999] overflow-hidden"
+            className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[9999] overflow-y-auto"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="vocamonster-card p-8 max-w-md w-full relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
+            <div className="vocamonster-card p-8 max-w-md w-full relative overflow-y-auto bg-gradient-to-br from-purple-900/90 to-indigo-900/90"
             >
               
               <div className="relative z-10">
