@@ -510,7 +510,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
   }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
-  const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
+  const addBattleLog = useCallback((message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
       id: Date.now(),
       message,
@@ -521,9 +521,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     // 토스트로도 표시
     setToastMessage({ message, type })
     setTimeout(() => setToastMessage(null), 3000) // 3초 후 자동으로 사라짐
-  }
+  }, [])
 
-  const loadMatch = async () => {
+  const loadMatch = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('battles')
@@ -558,9 +558,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       onBack()
       throw error
     }
-  }
+  }, [matchId, user?.id, addBattleLog, onBack])
 
-  const loadUserDeck = async () => {
+  const loadUserDeck = useCallback(async () => {
     try {
       const token = authService.getAccessToken()
       
@@ -628,9 +628,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('덱 로드 오류:', error)
     }
-  }
+  }, [])
 
-  const leaveBattle = async () => {
+  const leaveBattle = useCallback(async () => {
     try {
       if (match && match.status !== 'finished') {
         const isPlayer1 = match.player1_id === user?.id
@@ -655,7 +655,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('배틀 종료 처리 오류:', error)
     }
-  }
+  }, [match, user?.id])
 
   const botAutoAttack = useCallback(async () => {
     console.log('🤖 botAutoAttack 시작')
@@ -736,7 +736,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.log('🤖 botThinking false로 설정')
       setBotThinking(false)
     }
-  }, [match, user?.id])
+  }, [match, user?.id, addBattleLog])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
