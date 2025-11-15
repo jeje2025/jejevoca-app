@@ -122,13 +122,12 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
   const processedDefenseTurnsRef = useRef<Set<string>>(new Set())
   const [usedWordIds, setUsedWordIds] = useState<Set<string>>(new Set())
   const prevMatchRef = useRef<Match | null>(null)
-  const botAutoAnswerRef = useRef<((turn: MatchTurn) => Promise<void>) | null>(null)
-  const triggerDamageAnimation = (amount: number) => {
+  const triggerDamageAnimation = useCallback((amount: number) => {
     setDamage(amount)
     setDamagePosition('left')
     setShowDamageAnimation(true)
     setTimeout(() => setShowDamageAnimation(false), 800)
-  }
+  }, [])
 
   useEffect(() => {
     if (!user) {
@@ -150,10 +149,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
 
     initBattle()
-  }
+  }, [matchId, user?.id])
 
   // 시간 초과 시 턴 넘기기 함수
-  const skipTurn = async () => {
+  const skipTurn = useCallback(async () => {
     if (!match || !user) return
 
     const isPlayer1 = match.player1_id === user.id
@@ -172,10 +171,10 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       type: 'attack'
     }
     setBattleLogs(prev => [newLog, ...prev].slice(0, 5))
-  }
+  }, [match, user, matchId])
 
   // 시간 초과 시 자동 오답 처리 함수
-  const handleTimeOut = async () => {
+  const handleTimeOut = useCallback(async () => {
     if (!match || !currentQuestion || !user) return
     if (isAnswering || showResult) return
     
@@ -270,7 +269,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setIsAnswering(false)
       setTimeLeft(10)
     }
-  }
+  }, [match, currentQuestion, user, isAnswering, showResult, matchId, userDeck])
 
   useEffect(() => {
     if (!match) return
@@ -303,7 +302,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }, 1000)
 
     return () => clearTimeout(timer)
-  }
+  }, [timeLeft, isMyTurn, showQuestion, match, isAnswering, showResult, currentQuestion, handleTimeOut, skipTurn])
 
   useEffect(() => {
     if (isMyTurn && !showQuestion) {
@@ -317,7 +316,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setQuestionType(null)
       attackPanelOpenedRef.current = false
     }
-  }
+  }, [isMyTurn, showQuestion])
 
   // 모달 열릴 때 body 스크롤 막기
   useEffect(() => {
@@ -348,7 +347,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       document.body.style.width = ''
       document.body.style.overflow = ''
     }
-  }
+  }, [showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel])
 
   // 폴링 기반 매치/방어 턴 체크
   useEffect(() => {
@@ -417,14 +416,76 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
             .limit(1)
             .maybeSingle()
 
-          if (!botDefenseError && botDefenseTurn) {
-            console.log('🤖 봇 방어 턴 감지 (current_turn = BOT), 자동 답변 시작:', botDefenseTurn)
+          if (!botDefenseError && botDefenseTurn && !processedDefenseTurnsRef.current.has(botDefenseTurn.id)) {
+            console.log('🤖 봇 방어 턴 감지, 자동 답변 시작:', botDefenseTurn)
+            processedDefenseTurnsRef.current.add(botDefenseTurn.id)
             setBotThinking(true)
-            // 1초 후 봇이 답변하도록 (botAutoAnswer는 나중에 정의되므로 직접 호출)
-            setTimeout(() => {
-              botAutoAnswerRef.current?.(botDefenseTurn as MatchTurn).then(() => {
+
+            // 봇 답변 로직 (간소화)
+            setTimeout(async () => {
+              try {
+                const word = userDeckRef.current.find(w => w.id === botDefenseTurn.word_id)
+                if (!word) {
+                  setBotThinking(false)
+                  return
+                }
+
+                // 80% 확률로 정답
+                const isCorrect = Math.random() < 0.8
+                let botAnswer = ''
+
+                if (botDefenseTurn.question_type === 'meaning') {
+                  botAnswer = isCorrect ? word.korean_meaning : DISTRACTOR_MEANINGS[0]
+                } else if (botDefenseTurn.question_type === 'synonym' && word.synonyms?.length) {
+                  botAnswer = isCorrect ? word.synonyms[0] : word.word
+                } else if (botDefenseTurn.question_type === 'antonym' && word.antonyms?.length) {
+                  botAnswer = isCorrect ? word.antonyms[0] : word.word
+                }
+
+                // DB 업데이트
+                await supabase.from('battle_turns').update({
+                  answer: botAnswer,
+                  is_correct: isCorrect,
+                  damage: isCorrect ? 0 : 1
+                }).eq('id', botDefenseTurn.id)
+
+                const { data: matchData } = await supabase
+                  .from('battles')
+                  .select('*')
+                  .eq('id', matchId)
+                  .single()
+
+                if (matchData) {
+                  const isPlayer1 = matchData.player1_id === botDefenseTurn.defender_id
+                  const newHearts = isPlayer1
+                    ? Math.max(0, matchData.player1_hearts - (isCorrect ? 0 : 1))
+                    : Math.max(0, matchData.player2_hearts - (isCorrect ? 0 : 1))
+
+                  const nextTurn = isCorrect ? botDefenseTurn.defender_id : botDefenseTurn.attacker_id
+
+                  await supabase.from('battles').update({
+                    [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
+                    current_turn: nextTurn,
+                    ...(newHearts === 0 && {
+                      status: 'finished',
+                      winner_id: botDefenseTurn.attacker_id
+                    })
+                  }).eq('id', matchId)
+
+                  setBotDefenseResult({
+                    word: word.word,
+                    questionType: botDefenseTurn.question_type,
+                    botAnswer,
+                    correctAnswer: botDefenseTurn.question_type === 'meaning' ? word.korean_meaning : (word.synonyms?.[0] || word.antonyms?.[0] || ''),
+                    isCorrect
+                  })
+                  setShowBotDefenseResult(true)
+                }
+              } catch (error) {
+                console.error('봇 답변 오류:', error)
+              } finally {
                 setBotThinking(false)
-              })
+              }
             }, 1000)
           }
         }
@@ -490,9 +551,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }, 2000)
 
     return () => clearInterval(interval)
-  }
+  }, [matchId, user?.id, showQuestion, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, match?.is_bot_match, botThinking])
 
-  const addBattleLog = (message: string, type: BattleLog['type'] = 'attack') => {
+  const addBattleLog = useCallback((message: string, type: BattleLog['type'] = 'attack') => {
     const newLog: BattleLog = {
       id: Date.now(),
       message,
@@ -503,9 +564,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     // 토스트로도 표시
     setToastMessage({ message, type })
     setTimeout(() => setToastMessage(null), 3000) // 3초 후 자동으로 사라짐
-  }
+  }, [])
 
-  const loadMatch = async () => {
+  const loadMatch = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('battles')
@@ -540,9 +601,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       onBack()
       throw error
     }
-  }
+  }, [matchId, user?.id, addBattleLog, onBack])
 
-  const loadUserDeck = async () => {
+  const loadUserDeck = useCallback(async () => {
     try {
       const token = authService.getAccessToken()
       
@@ -610,9 +671,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('덱 로드 오류:', error)
     }
-  }
+  }, [])
 
-  const leaveBattle = async () => {
+  const leaveBattle = useCallback(async () => {
     try {
       if (match && match.status !== 'finished') {
         const isPlayer1 = match.player1_id === user?.id
@@ -637,9 +698,9 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     } catch (error) {
       console.error('배틀 종료 처리 오류:', error)
     }
-  }
+  }, [match, user?.id])
 
-  const botAutoAttack = async () => {
+  const botAutoAttack = useCallback(async () => {
     console.log('🤖 botAutoAttack 시작')
     setBotThinking(true)
 
@@ -718,7 +779,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       console.log('🤖 botThinking false로 설정')
       setBotThinking(false)
     }
-  }
+  }, [match, user?.id, addBattleLog])
 
   // 봇 자동 공격 트리거 (봇 턴일 때만, 단 showBotDefenseResult가 false일 때만)
   useEffect(() => {
@@ -736,7 +797,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
 
       return () => clearTimeout(timer)
     }
-  }
+  }, [match?.current_turn, match?.status, user, botThinking, showQuestion, showResult, showBotDefenseResult, showOpponentDefenseResult, showAttackPanel, botAutoAttack])
 
   const checkGameEnd = async (matchData: Match) => {
     if (gameEnded) return
@@ -1103,168 +1164,8 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
     }
   }
 
-  const botAutoAnswer = async (turn: MatchTurn) => {
-    try {
-      console.log('봇이 답변 중...', turn)
 
-      // 단어 정보 가져오기
-      let word = userDeck.find(w => w.id === turn.word_id)
-
-      // userDeck에 없으면 데이터베이스에서 직접 가져오기
-      if (!word) {
-        try {
-          const { data: wordData, error } = await supabase
-            .from('words')
-            .select('id, word, korean_meaning, pronunciation, synonyms, antonyms')
-            .eq('id', turn.word_id)
-            .single()
-
-          if (wordData && !error) {
-            word = {
-              id: wordData.id,
-              word: wordData.word,
-              korean_meaning: wordData.korean_meaning || '',
-              pronunciation: wordData.pronunciation,
-              synonyms: wordData.synonyms || [],
-              antonyms: wordData.antonyms || []
-            }
-          } else {
-            word = {
-              id: turn.word_id,
-              word: turn.word_text,
-              korean_meaning: '',
-              synonyms: [],
-              antonyms: []
-            }
-          }
-        } catch (fetchError) {
-          word = {
-            id: turn.word_id,
-            word: turn.word_text,
-            korean_meaning: '',
-            synonyms: [],
-            antonyms: []
-          }
-        }
-      }
-
-      // 봇 난이도: 70% 확률로 정답
-      const botCorrectRate = 0.7
-      const willAnswerCorrect = Math.random() < botCorrectRate
-
-      let botAnswer = ''
-      let isCorrect = false
-
-      if (willAnswerCorrect) {
-        // 정답 선택
-        switch (turn.question_type) {
-          case 'meaning':
-            botAnswer = word.korean_meaning
-            isCorrect = true
-            break
-          case 'synonym':
-            botAnswer = word.synonyms?.[0] || ''
-            isCorrect = true
-            break
-          case 'antonym':
-            botAnswer = word.antonyms?.[0] || ''
-            isCorrect = true
-            break
-        }
-      } else {
-        // 오답 선택
-        const choices = generateChoices(word, turn.question_type)
-        const wrongAnswers = choices.filter(c => {
-          if (turn.question_type === 'meaning') return c !== word.korean_meaning
-          if (turn.question_type === 'synonym') return !word.synonyms?.includes(c)
-          if (turn.question_type === 'antonym') return !word.antonyms?.includes(c)
-          return true
-        })
-        botAnswer = wrongAnswers[Math.floor(Math.random() * wrongAnswers.length)] || choices[0]
-        isCorrect = false
-      }
-
-      // 정답 텍스트 계산 (UI 표시용)
-      let correctAnswerText = ''
-      switch (turn.question_type) {
-        case 'meaning':
-          correctAnswerText = word.korean_meaning
-          break
-        case 'synonym':
-          correctAnswerText = word.synonyms?.[0] || ''
-          break
-        case 'antonym':
-          correctAnswerText = word.antonyms?.[0] || ''
-          break
-      }
-
-      // VOCABOT 방어 결과 모달 표시
-      setBotDefenseResult({
-        word: word.word,
-        questionType: turn.question_type,
-        botAnswer,
-        correctAnswer: correctAnswerText,
-        isCorrect
-      })
-      setShowBotDefenseResult(true)
-
-      // 턴 업데이트
-      await supabase
-        .from('battle_turns')
-        .update({
-          answer: botAnswer,
-          is_correct: isCorrect,
-          damage: isCorrect ? 0 : 1
-        })
-        .eq('id', turn.id)
-
-      // 매치 정보 업데이트
-      const targetMatchId = getTurnMatchId(turn)
-      const { data: matchData } = await supabase
-        .from('battles')
-        .select('*')
-        .eq('id', targetMatchId)
-        .single()
-
-      if (!matchData) return
-
-      const isPlayer1 = matchData.player1_id === turn.defender_id
-      const damage = isCorrect ? 0 : 1
-      const newHearts = isPlayer1
-        ? Math.max(0, matchData.player1_hearts - damage)
-        : Math.max(0, matchData.player2_hearts - damage)
-
-      // 턴 전환 로직: 방어 성공하면 방어자 턴, 실패하면 공격자 턴 유지
-      const nextTurn = isCorrect ? turn.defender_id : turn.attacker_id
-
-      const updateData: any = {
-        [isPlayer1 ? 'player1_hearts' : 'player2_hearts']: newHearts,
-        current_turn: nextTurn
-      }
-
-      console.log(`🎯 봇 방어 결과: ${isCorrect ? '성공' : '실패'}, 다음 턴: ${nextTurn === BOT_ID ? 'BOT' : 'PLAYER'}`)
-
-      if (newHearts === 0) {
-        updateData.status = 'finished'
-        updateData.winner_id = turn.attacker_id
-      }
-
-      await supabase
-        .from('battles')
-        .update(updateData)
-        .eq('id', targetMatchId)
-
-    } catch (error) {
-      console.error('봇 답변 오류:', error)
-    }
-  }
-
-  // botAutoAnswer를 ref에 할당
-  useEffect(() => {
-    botAutoAnswerRef.current = botAutoAnswer
-  }
-
-  const submitAnswer = async (answer: string) => {
+  const submitAnswer = useCallback(async (answer: string) => {
     if (!match || !currentQuestion || !user) return
     
     // 이미 답변을 제출한 상태면 중복 실행 방지
@@ -1373,7 +1274,7 @@ export function VocamonsterBattle({ matchId, onBack, onMatchEnd }: VocamonsterBa
       setIsAnswering(false)
       setTimeLeft(10)
     }
-  }
+  }, [match, currentQuestion, user, isAnswering, showResult, matchId, userDeck])
 
   if (loading) {
     return (
